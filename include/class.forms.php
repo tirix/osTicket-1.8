@@ -22,7 +22,8 @@ class Form {
     var $fields = array();
     var $title = '';
     var $instructions = '';
-
+    var $item = null;
+    
     var $validators = array();
 
     var $_errors = null;
@@ -63,6 +64,7 @@ class Form {
 
     function getTitle() { return $this->title; }
     function getInstructions() { return $this->instructions; }
+    function getItem() { return $this->item; }
     function getSource() { return $this->_source; }
     function setSource($source) { $this->_source = $source; }
 
@@ -416,6 +418,15 @@ class FormField {
     }
 
     /**
+     * isTranslatable
+     * 
+     *  Indicates if this field can be input in several languages
+     */
+    function isTranslatable() {
+        return false;
+    }
+
+    /**
      * parse
      *
      * Used to transform user-submitted data to a PHP value. This value is
@@ -762,7 +773,7 @@ class FormField {
     }
 
     function getConfigurationForm($source=null) {
-        if (!$this->_cform) {
+    	if (!$this->_cform) {
             $type = static::getFieldType($this->get('type'));
             $clazz = $type[1];
             $T = new $clazz($this->ht);
@@ -935,8 +946,8 @@ class TextareaField extends FormField {
                 'id'=>5, 'label'=>__('Placeholder'), 'required'=>false, 'default'=>'',
                 'hint'=>__('Text shown in before any input from the user'),
                 'configuration'=>array('size'=>40, 'length'=>40,
-                    'translatable'=>$this->getTranslateTag('placeholder')),
-            )),
+                'translatable'=>$this->getTranslateTag('placeholder')),
+            	)),
         );
     }
 
@@ -966,6 +977,9 @@ class TextareaField extends FormField {
             return $value;
     }
 
+	function isTranslatable() {
+		return true;
+	}
 }
 
 class PhoneField extends FormField {
@@ -1035,27 +1049,39 @@ class BooleanField extends FormField {
     static $widget = 'CheckboxWidget';
 
     function getConfigurationOptions() {
-        return array(
+    	//die("Setting translatable to ".$this->getTranslateTag('desc'));
+    	return array(
             'desc' => new TextareaField(array(
                 'id'=>1, 'label'=>__('Description'), 'required'=>false, 'default'=>'',
                 'hint'=>__('Text shown inline with the widget'),
-                'configuration'=>array('rows'=>2)))
-        );
+                'configuration'=>array(
+                		'rows'=>2,
+           				'translatable'=>$this->getTranslateTag('desc')
+    					),
+                 )),
+        		
+            'default' => new BooleanField(array(
+                'id'=>2, 'label'=>__('Default'), 'required'=>false, 'default'=>true,
+                //'hint'=>__('Shall the checkbox be initially set?'),
+                'configuration'=>array(
+                    'desc'=>'Shall the checkbox be initially set?')
+            	)),
+        	);
     }
 
     function to_database($value) {
-        return ($value) ? '1' : '0';
+    	return ($value) ? '1' : '0';
     }
 
     function parse($value) {
-        return $this->to_php($value);
+    	return $this->to_php($value);
     }
     function to_php($value) {
-        return $value ? true : false;
+    	return $value ? true : false;
     }
 
     function toString($value) {
-        return ($value) ? __('Yes') : __('No');
+    	return ($value) ? __('Yes') : __('No');
     }
 
     function getSearchMethods() {
@@ -1151,7 +1177,6 @@ class ChoiceField extends FormField {
     }
 
     function getChoice($value) {
-
         $choices = $this->getChoices();
         $selection = array();
         if ($value && is_array($value)) {
@@ -2303,10 +2328,13 @@ class TextareaWidget extends Widget {
             $class = sprintf('class="%s"', implode(' ', $class));
             $this->value = Format::viewableImages($this->value);
         }
+        if (isset($config['translatable']) && $config['translatable']) {
+            $translatable = 'data-translate-tag="'.$config['translatable'].'"';
+		} 
         ?>
         <span style="display:inline-block;width:100%">
         <textarea <?php echo $rows." ".$cols." ".$maxlength." ".$class
-                .' placeholder="'.$config['placeholder'].'"'; ?>
+                .' placeholder="'.$config['placeholder'].'" '.$translatable; ?>
             id="<?php echo $this->id; ?>"
             name="<?php echo $this->name; ?>"><?php
                 echo Format::htmlchars($this->value);
@@ -2453,9 +2481,11 @@ class CheckboxWidget extends Widget {
 
     function render($options=array()) {
         $config = $this->field->getConfiguration();
-        if (!isset($this->value))
-            $this->value = $this->field->get('default');
-        ?>
+        if (!isset($this->value)) {
+//            $this->value = $this->field->get('default');
+			$this->value = $config['default'];
+        }
+                ?>
         <input id="<?php echo $this->id; ?>" style="vertical-align:top;"
             type="checkbox" name="<?php echo $this->name; ?>[]" <?php
             if ($this->value) echo 'checked="checked"'; ?> value="<?php
@@ -2585,7 +2615,7 @@ class ThreadEntryWidget extends Widget {
             echo Format::htmlchars($this->field->getLocal('label'));
         ?>: <span class="error">*</span></span><br/>
         <textarea style="width:100%;" name="<?php echo $this->field->get('name'); ?>"
-            placeholder="<?php echo Format::htmlchars($this->field->get('hint')); ?>"
+            placeholder="<?php echo Format::htmlchars($this->field->getLocal('hint')); ?>"
             class="<?php if ($cfg->isHtmlThreadEnabled()) echo 'richtext';
                 ?> draft draft-delete" <?php echo $attrs; ?>
             cols="21" rows="8" style="width:80%;"><?php echo
@@ -2711,7 +2741,11 @@ class FreeTextField extends FormField {
     function getConfigurationOptions() {
         return array(
             'content' => new TextareaField(array(
-                'configuration' => array('html' => true, 'size'=>'large'),
+                'id'=>1,
+				'configuration' => array(
+					'html' => true, 'size'=>'large',
+					'translatable'=>$this->getTranslateTag('content'),
+					),
                 'label'=>__('Content'), 'required'=>true, 'default'=>'',
                 'hint'=>__('Free text shown in the form, such as a disclaimer'),
             )),
@@ -2730,7 +2764,12 @@ class FreeTextField extends FormField {
 class FreeTextWidget extends Widget {
     function render($options=array()) {
         $config = $this->field->getConfiguration();
-        ?><div class=""><?php
+        if (isset($config['translatable']) && $config['translatable']) {
+            $translatable = 'data-translate-tag="'.$config['translatable'].'"';
+		}
+        ?><div id="<?php
+	        echo $this->id;
+        ?>"><?php
         if ($label = $this->field->getLocal('label')) { ?>
             <h3><?php
             echo Format::htmlchars($label);
@@ -2741,7 +2780,7 @@ class FreeTextWidget extends Widget {
             echo Format::htmlchars($hint);
         ?></em><?php
         } ?>
-        <div><?php
+        <div <?php echo $translatable; ?>><?php
             echo Format::viewableImages($config['content']); ?></div>
         </div>
         <?php

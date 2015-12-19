@@ -106,13 +106,19 @@
     },
 
     add: function(lang, text) {
+      var inputElt = this.$element.is('textarea') ? 
+    	$('<textarea data-lang="'+lang+'" cols="'+this.$element.attr('cols')+'" rows="4"/>') : 
+    	$('<input type="text" data-lang="'+lang+'">');
+      console.log(this.$element);
+    	
       var info = this.langs[lang];
       this.$translations.append(
         $('<li>')
         .append($('<label class="language">')
           .text(info.name)
           .prepend($('<span>').addClass('flag flag-'+info.flag))
-          .append($('<input type="text" data-lang="'+lang+'">')
+          .append($('<br/>'))
+          .append(inputElt
             .attr('dir', info.direction || 'ltr')
             .on('change keydown', $.proxy(this.showCommit, this))
             .val(text)
@@ -144,7 +150,11 @@
 
     commit: function(e) {
       var changes = {}, self = this;
-      $('input[type=text]', this.$translations).each(function() {
+      var inputElt = this.$element.is('textarea') ? 
+    	    	$('textarea', this.$translations) : 
+    	    	$('input[type=text]', this.$translations);
+
+      inputElt.each(function() {
         var trans = $(this).val();
         if (!trans)
             $(this).closest('li').slideUp();

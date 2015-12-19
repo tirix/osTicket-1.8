@@ -709,7 +709,7 @@ class DynamicListItem extends VerySimpleModel implements CustomListItem {
     }
 
     function getConfigurationForm($source=null) {
-        if (!$this->_form) {
+    	if (!$this->_form) {
             $config = $this->getConfiguration();
             $this->_form = DynamicForm::lookup(
                 array('type'=>'L'.$this->get('list_id')))->getForm($source);
@@ -721,6 +721,10 @@ class DynamicListItem extends VerySimpleModel implements CustomListItem {
                         $f->value = $f->to_php($config[$name]);
                     else if ($f->get('default'))
                         $f->value = $f->get('default');
+           			if($f->isTranslatable() && !isset($config['translatable'])) {
+						$f->configure('translatable', $this->getPropertyTranslateTag($f->get('id')));
+						//$f->configure('placeholder', sprintf('listitem.%s.prop.%s', $this->id, $f->get('id')));
+           			}
                 }
             }
         }
@@ -753,12 +757,27 @@ class DynamicListItem extends VerySimpleModel implements CustomListItem {
     function getTranslateTag($subtag) {
         return _H(sprintf('listitem.%s.%s', $subtag, $this->id));
     }
+    
+    function getPropertyTranslateTag($property_id) {
+        return _H(sprintf('listitem.%s.prop.%s', $this->id, $property_id));
+    }
+
     function getLocal($subtag) {
         $tag = $this->getTranslateTag($subtag);
         $T = CustomDataTranslation::translate($tag);
         return $T != $tag ? $T : $this->get($subtag);
     }
 
+    function getLocalProperty($property_id) {
+    	$tag = $this->getPropertyTranslateTag($property_id);
+    	$T = CustomDataTranslation::translate($tag);
+    	if($T != $tag) return $T;
+    	else {
+        	$config = $this->getConfiguration();
+    		return $config[$property_id];
+    	}
+    }
+    
     function toString() {
         return $this->get('value');
     }
