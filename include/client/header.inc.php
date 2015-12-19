@@ -51,6 +51,7 @@ if (($lang = Internationalization::getCurrentLanguage())
     ?>
 </head>
 <body>
+	<?php include(ASSETS_PATH . 'header.php'); ?>
     <div id="container">
         <div id="header">
             <div class="pull-right flush-right">

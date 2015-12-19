@@ -9,6 +9,7 @@
     <h4><?php echo __('Please Wait!');?></h4>
     <p><?php echo __('Please wait... it will take a second!');?></p>
 </div>
+<?php include(ASSETS_PATH . 'footer.php'); ?>
 <?php
 if (($lang = Internationalization::getCurrentLanguage()) && $lang != 'en_US') { ?>
     <script type="text/javascript" src="ajax.php/i18n/<?php
