@@ -961,5 +961,47 @@ class TicketsAjaxAPI extends AjaxController {
 
          include STAFFINC_DIR . 'templates/task.tmpl.php';
     }
+
+    function printSelectedTicketsStickers() {
+        global $thisstaff, $ost;
+
+        $errors = $info = array();
+        if (!$thisstaff || !$thisstaff->canManageTickets())
+            $errors['err'] = sprintf('%s %s',
+                    sprintf(__('You do not have permission %s.'),
+                        __('to mass manage tickets')),
+                    __('Contact admin for such access'));
+        elseif (!$_REQUEST['tids'] || !count($_REQUEST['tids']))
+            $errors['err']=sprintf(__('You must select at least %s.'),
+                    __('one ticket'));
+
+            $count = count($_REQUEST['tids']);
+        if (!$errors) {
+            $i = 0;
+            $comments = $_REQUEST['comments'];
+            foreach ($_REQUEST['tids'] as $tid) {
+
+                if (($ticket=Ticket::lookup($tid))) {
+                	$msg .= " + " . $tid;
+                    $i++;
+                }
+            }
+        }
+        $count = $_REQUEST['count'] ?:
+            ($_REQUEST['tids'] ?  count($_REQUEST['tids']) : 0);
+
+        $info['title'] = sprintf(__('%1$s Tickets &mdash; %2$d selected'),
+                TicketStateField::getVerb($state),
+                 $count);
+
+        //Http::response(201, 'Successfully processed');
+        
+        ob_start();
+        include(STAFFINC_DIR . 'templates/tickets-printStickers.tmpl.php');
+        $resp = ob_get_contents();
+        ob_end_clean();
+
+        return $resp;
+    }
 }
 ?>
