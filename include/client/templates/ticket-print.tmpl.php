@@ -115,9 +115,12 @@ div.hr {
 <htmlpagefooter name="def" style="display:none">
     <div class="hr">&nbsp;</div>
     <table width="100%"><tr><td class="flush-left">
-        Ticket #<?php echo $ticket->getNumber(); ?> printed by
-        <?php echo $thisclient->getName()->getFirst(); ?> on
-        <?php echo Format::daydatetime(Misc::gmtime()); ?>
+        <?php echo sprintf(
+                __( 'Ticket #%1$s printed by %2$s on %3$s'),
+                $ticket->getNumber(),
+                $ticket->getUser()->getFirstName()." ".$ticket->getName(),
+        		Format::daydatetime(time())
+                ); ?>
     </td>
     <td class="flush-right">
         Page {PAGENO}
@@ -133,7 +136,7 @@ div.hr {
     <th><?php echo __('Status'); ?></th>
     <td><?php echo $ticket->getStatus(); ?></td>
     <th><?php echo __('Name'); ?></th>
-    <td><?php echo $ticket->getOwner()->getName(); ?></td>
+    <td><?php echo $ticket->getUser()->getFirstName()." ".$ticket->getOwner()->getName(); ?></td>
 </tr>
 <tr>
     <th><?php echo __('Priority'); ?></th>

@@ -64,6 +64,13 @@ class UserModel extends VerySimpleModel {
                 'constraint' => array('id' => 'UserCdata.user_id'),
                 'null' => true,
             ),
+            'cdata_entry' => array(
+                'constraint' => array(
+                    'id' => 'DynamicFormEntry.object_id',
+                    "'U'" => 'DynamicFormEntry.object_type',
+                ),
+                'null' => true,
+            ),
         )
     );
 
@@ -214,6 +221,12 @@ class User extends UserModel {
 
     function getFullName() {
         return $this->name;
+    }
+
+    function getFirstName() {
+        foreach ($this->getDynamicData() as $e)
+            if ($a = $e->getAnswer('firstname'))
+                return $a;
     }
 
     function getPhoneNumber() {

@@ -60,7 +60,7 @@ if ($_POST && is_object($ticket) && $ticket->getId()) {
             $_REQUEST['a'] = null; //Clear edit action - going back to view.
             $ticket->logNote(__('Ticket details updated'), sprintf(
                 __('Ticket details were updated by client %s &lt;%s&gt;'),
-                $thisclient->getName(), $thisclient->getEmail()));
+                $thisclient->getFirstName()." ".$thisclient->getName(), $thisclient->getEmail()));
         }
         break;
     case 'reply':
@@ -75,7 +75,7 @@ if ($_POST && is_object($ticket) && $ticket->getId()) {
             //Everything checked out...do the magic.
             $vars = array(
                     'userId' => $thisclient->getId(),
-                    'poster' => (string) $thisclient->getName(),
+                    'poster' => (string) ($thisclient->getFirstName()." ".$thisclient->getName()),
                     'message' => $_POST['message']);
             $vars['cannedattachments'] = $attachments->getClean();
             if (isset($_POST['draft_id']))
