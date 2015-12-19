@@ -5,7 +5,7 @@
 </p>
 <form action="profile.php" method="post">
   <?php csrf_token(); ?>
-<table width="800" class="padded">
+<table width="100%" class="padded">
 <?php
 foreach ($user->getForms() as $f) {
     $f->render(false);

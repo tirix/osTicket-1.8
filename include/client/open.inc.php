@@ -10,6 +10,9 @@ if($thisclient && $thisclient->isValid()) {
 $info=($_POST && $errors)?Format::htmlchars($_POST):$info;
 
 $form = null;
+if (!$info['topicId'] && is_numeric($_GET['topicId']))
+	$info['topicId'] = $_GET['topicId'];
+
 if (!$info['topicId'])
     $info['topicId'] = $cfg->getDefaultTopicId();
 
@@ -25,12 +28,16 @@ if ($info['topicId'] && ($topic=Topic::lookup($info['topicId']))) {
 }
 
 ?>
-<h1><?php echo __('Open a New Ticket');?></h1>
+<h1><?php 
+	if(!$info['topicId']) echo __('Open a New Ticket');
+	else echo $topic->getLocalName();
+	?>
+</h1>
 <p><?php echo __('Please fill in the form below to open a new ticket.');?></p>
 <form id="ticketForm" method="post" action="open.php" enctype="multipart/form-data">
   <?php csrf_token(); ?>
   <input type="hidden" name="a" value="open">
-  <table width="800" cellpadding="1" cellspacing="0" border="0">
+  <table width="100%" cellpadding="1" cellspacing="0" border="0">
     <tbody>
 <?php
         if (!$thisclient) {

@@ -27,7 +27,7 @@ if ($thisclient && $thisclient->isGuest()
 
 <?php } ?>
 
-<table width="800" cellpadding="1" cellspacing="0" border="0" id="ticketInfo">
+<table width="100%" cellpadding="1" cellspacing="0" border="0" id="ticketInfo">
     <tr>
         <td colspan="2" width="100%">
             <h1>
@@ -50,15 +50,15 @@ if ($thisclient && $thisclient->isGuest()
         <td width="50%">
             <table class="infoTable" cellspacing="1" cellpadding="3" width="100%" border="0">
                 <tr>
-                    <th width="100"><?php echo __('Ticket Status');?>:</th>
+                    <th width="100"><?php echo __('Ticket Status');?> :</th>
                     <td><?php echo ($S = $ticket->getStatus()) ? $S->getLocalName() : ''; ?></td>
                 </tr>
                 <tr>
-                    <th><?php echo __('Department');?>:</th>
+                    <th><?php echo __('Department');?> :</th>
                     <td><?php echo Format::htmlchars($dept instanceof Dept ? $dept->getName() : ''); ?></td>
                 </tr>
                 <tr>
-                    <th><?php echo __('Create Date');?>:</th>
+                    <th><?php echo __('Create Date');?> :</th>
                     <td><?php echo Format::datetime($ticket->getCreateDate()); ?></td>
                 </tr>
            </table>
@@ -66,15 +66,15 @@ if ($thisclient && $thisclient->isGuest()
        <td width="50%">
            <table class="infoTable" cellspacing="1" cellpadding="3" width="100%" border="0">
                <tr>
-                   <th width="100"><?php echo __('Name');?>:</th>
-                   <td><?php echo mb_convert_case(Format::htmlchars($ticket->getName()), MB_CASE_TITLE); ?></td>
+                   <th width="100"><?php echo __('Name');?> :</th>
+                   <td><?php echo mb_convert_case(Format::htmlchars($ticket->getOwner()->getFirstName()." ".$ticket->getName()), MB_CASE_TITLE); ?></td>
                </tr>
                <tr>
-                   <th width="100"><?php echo __('Email');?>:</th>
+                   <th width="100"><?php echo __('Email');?> :</th>
                    <td><?php echo Format::htmlchars($ticket->getEmail()); ?></td>
                </tr>
                <tr>
-                   <th><?php echo __('Phone');?>:</th>
+                   <th><?php echo __('Phone');?> :</th>
                    <td><?php echo $ticket->getPhoneNumber(); ?></td>
                </tr>
             </table>
@@ -96,8 +96,8 @@ foreach (DynamicFormEntry::forTicket($ticket->getId()) as $idx=>$form) {
             continue;
         ?>
         <tr>
-        <th width="100"><?php echo $answer->getField()->get('label');
-            ?>:</th>
+        <th width="100"><?php echo $answer->getField()->getLocal('label');
+            ?> :</th>
         <td><?php echo $answer->display(); ?></td>
         </tr>
     <?php } ?>
@@ -106,7 +106,7 @@ foreach (DynamicFormEntry::forTicket($ticket->getId()) as $idx=>$form) {
 </tr>
 </table>
 <br>
-<div class="subject"><?php echo __('Subject'); ?>: <strong><?php echo Format::htmlchars($ticket->getSubject()); ?></strong></div>
+<div class="subject"><?php echo __('Subject'); ?> : <strong><?php echo Format::htmlchars($ticket->getSubject()); ?></strong></div>
 <div id="ticketThread">
 <?php
 if($ticket->getThreadCount() && ($thread=$ticket->getClientThread())) {
@@ -119,7 +119,7 @@ if($ticket->getThreadCount() && ($thread=$ticket->getClientThread())) {
         if($entry->type=='R' && ($cfg->hideStaffName() || !$entry->staff_id))
             $poster = ' ';
         ?>
-        <table class="thread-entry <?php echo $threadType[$entry->type]; ?>" cellspacing="0" cellpadding="1" width="800" border="0">
+        <table class="thread-entry <?php echo $threadType[$entry->type]; ?>" cellspacing="0" cellpadding="1" width="100%" border="0">
             <tr><th><div>
 <?php echo Format::datetime($entry->created); ?>
                 &nbsp;&nbsp;<span class="textra"></span>

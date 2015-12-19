@@ -111,23 +111,23 @@ $tickets->values(
     <input type="submit" value="<?php echo __('Go');?>">
 </form>
 <a class="refresh" href="<?php echo Format::htmlchars($_SERVER['REQUEST_URI']); ?>"><?php echo __('Refresh'); ?></a>
-<table id="ticketTable" width="800" border="0" cellspacing="0" cellpadding="0">
+<table id="ticketTable" width="100%" border="0" cellspacing="0" cellpadding="0">
     <caption><?php echo $showing; ?></caption>
     <thead>
         <tr>
-            <th nowrap>
+            <th nowrap width="80">
                 <a href="tickets.php?sort=ID&order=<?php echo $negorder; ?><?php echo $qstr; ?>" title="Sort By Ticket ID"><?php echo __('Ticket #');?></a>
             </th>
-            <th width="120">
+            <th width="100">
                 <a href="tickets.php?sort=date&order=<?php echo $negorder; ?><?php echo $qstr; ?>" title="Sort By Date"><?php echo __('Create Date');?></a>
             </th>
-            <th width="100">
+            <th width="80">
                 <a href="tickets.php?sort=status&order=<?php echo $negorder; ?><?php echo $qstr; ?>" title="Sort By Status"><?php echo __('Status');?></a>
             </th>
-            <th width="320">
+            <th width="200">
                 <a href="tickets.php?sort=subj&order=<?php echo $negorder; ?><?php echo $qstr; ?>" title="Sort By Subject"><?php echo __('Subject');?></a>
             </th>
-            <th width="120">
+            <th width="80">
                 <a href="tickets.php?sort=dept&order=<?php echo $negorder; ?><?php echo $qstr; ?>" title="Sort By Department"><?php echo __('Department');?></a>
             </th>
         </tr>

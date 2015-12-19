@@ -180,7 +180,7 @@ if ($form && count($langs) > 1) { ?>
         $ferrors = $f->errors(); ?>
         <tr>
             <td><i class="icon-sort"></i></td>
-            <td><input type="text" size="32" name="label-<?php echo $id; ?>"
+            <td><input type="text" size="20" name="label-<?php echo $id; ?>"
                 data-translate-tag="<?php echo $f->getTranslateTag('label'); ?>"
                 value="<?php echo Format::htmlchars($f->get('label')); ?>"/>
                 <font class="error"><?php
