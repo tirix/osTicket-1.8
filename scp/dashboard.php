@@ -66,6 +66,12 @@ require(STAFFINC_DIR.'header.inc.php');
 
 <div id="table-here"></div>
 
+<hr/>
+<h2><?php echo 'Matagot Custom Export'; ?>&nbsp;<i class="help-tip icon-question-sign" href="#statistics"></i></h2>
+<p><?php echo 'Export de tous les tickets, au format CSV.';?></p>
+
+<a href="matagot-export.php">Export</a>
+
 <?php
 include(STAFFINC_DIR.'footer.inc.php');
 ?>
