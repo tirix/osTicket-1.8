@@ -424,6 +424,8 @@ var ticket_onload = function($) {
         if (urls)
             $.showImagesInline(urls, $(this).data('id'));
     });
+
+    window.scrollTo(0,0); // Matagot - Pour Robin, revenir en haut!
 };
 $(ticket_onload);
 $(document).on('pjax:success', function() { ticket_onload(jQuery); });
