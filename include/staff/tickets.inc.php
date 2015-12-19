@@ -24,6 +24,17 @@ case 'closed':
     $showassigned=true; //closed by.
     $tickets->values('staff__firstname', 'staff__lastname', 'team__name', 'team_id');
     break;
+case 'myoverdue':
+    $status='open';
+    $results_type=__('My Overdue Tickets');
+    $tickets->filter(array('staff_id'=>$thisstaff->getId()));
+    $tickets->filter(array('isoverdue'=>1));
+    break;
+case 'myclosed':
+    $status='closed';
+    $results_type=__('My Closed Tickets');
+    $tickets->filter(array('staff_id'=>$thisstaff->getId()));
+    break;
 case 'overdue':
     $status='open';
     $results_type=__('Overdue Tickets');
@@ -97,14 +108,14 @@ if ($status)
 $visibility = array(
     new Q(array('status__state'=>'open', 'staff_id' => $thisstaff->getId()))
 );
-// -- Routed to a department of mine
-if (!$thisstaff->showAssignedOnly() && ($depts=$thisstaff->getDepts()))
-    $visibility[] = new Q(array('dept_id__in' => $depts));
-// -- Open and assigned to a team of mine
-if (($teams = $thisstaff->getTeams()) && count(array_filter($teams)))
-    $visibility[] = new Q(array(
-        'team_id__in' => array_filter($teams), 'status__state'=>'open'
-    ));
+	// -- Routed to a department of mine
+	if (!$thisstaff->showAssignedOnly() && ($depts=$thisstaff->getDepts()))
+	    $visibility[] = new Q(array('dept_id__in' => $depts));
+	// -- Open and assigned to a team of mine
+	if (($teams = $thisstaff->getTeams()) && count(array_filter($teams)))
+	    $visibility[] = new Q(array(
+	        'team_id__in' => array_filter($teams), 'status__state'=>'open'
+	    ));
 $tickets->filter(Q::any($visibility));
 
 // Add in annotations
@@ -117,7 +128,7 @@ $tickets->annotate(array(
 // Select pertinent columns
 // ------------------------------------------------------------
 $tickets->values('lock__staff_id', 'staff_id', 'isoverdue', 'team_id', 'ticket_id', 'number', 'cdata__subject', 'user__default_email__address', 'source', 'cdata__:priority__priority_color', 'cdata__:priority__priority_desc', 'status_id', 'status__name', 'status__state', 'dept_id', 'dept__name', 'user__name', 'lastupdate');
-
+		
 // Apply requested quick filter
 
 // Apply requested sorting
@@ -186,7 +197,13 @@ $_SESSION[':Q:tickets'] = $tickets;
 <!-- SEARCH FORM END -->
 <div class="clear"></div>
 <div style="margin-bottom:20px; padding-top:10px;">
-<div>
+<form action="tickets.php" method="POST" name='tickets' id="tickets">
+<?php csrf_token(); ?>
+ <input type="hidden" name="a" value="mass_process" >
+ <input type="hidden" name="do" id="action" value="" >
+ <input type="hidden" name="status" value="<?php echo
+ Format::htmlchars($_REQUEST['status'], true); ?>" >
+	<div>
         <div class="pull-left flush-left">
             <h2><a href="<?php echo $refresh_url; ?>"
                 title="<?php echo __('Refresh'); ?>"><i class="icon-refresh"></i> <?php echo
@@ -207,6 +224,9 @@ $_SESSION[':Q:tickets'] = $tickets;
 <?php } ?>
             </select>
             </span>
+            <a id="tickets-print" class="action-button tickets-action"
+                href="#tickets/printStickers"><i
+            class="icon-print"></i> <?php echo __('Imprimer les Etiquettes'); ?></a>
             <?php
             if ($thisstaff->canManageTickets()) {
                 echo TicketStatus::status_options();
@@ -220,12 +240,6 @@ $_SESSION[':Q:tickets'] = $tickets;
         </div>
 </div>
 <div class="clear" style="margin-bottom:10px;"></div>
-<form action="tickets.php" method="POST" name='tickets' id="tickets">
-<?php csrf_token(); ?>
- <input type="hidden" name="a" value="mass_process" >
- <input type="hidden" name="do" id="action" value="" >
- <input type="hidden" name="status" value="<?php echo
- Format::htmlchars($_REQUEST['status'], true); ?>" >
  <table class="list fixed" border="0" cellspacing="1" cellpadding="2" width="940">
     <thead>
         <tr>
@@ -240,7 +254,9 @@ $_SESSION[':Q:tickets'] = $tickets;
                 <?php echo __('Subject'); ?></th>
             <th width="170">
                 <?php echo __('From');?></th>
-            <?php
+            <!-- th width="70">
+            	<?php echo __('Game'); ?></th -->
+                <?php
             if($search && !$status) { ?>
                 <th width="60">
                     <?php echo __('Status');?></th>
@@ -342,7 +358,10 @@ $_SESSION[':Q:tickets'] = $tickets;
                 <td nowrap><span class="truncate"><?php
                     $un = new PersonsName($T['user__name']);
                         echo Format::htmlchars($un);
-                ?></td>
+                ?></span></td>
+            	<!-- td nowrap><span class="truncate"><?php 
+            		echo $T['game']; 
+            	?></span></td -->
                 <?php
                 if($search && !$status){
                     $displaystatus=TicketStatus::getLocalById($T['status_id'], 'value', $T['status__name']);

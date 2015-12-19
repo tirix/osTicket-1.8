@@ -129,6 +129,7 @@ if ($results) { ?>
         $tid=$row['number'];
         $subject = Format::htmlchars($row['subject']);
         $threadcount=$row['thread_count'];
+        $game = 'game';
         ?>
         <tr id="<?php echo $row['ticket_id']; ?>">
             <?php

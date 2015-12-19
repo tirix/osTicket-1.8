@@ -30,6 +30,7 @@ include_once(INCLUDE_DIR.'class.priority.php');
 include_once(INCLUDE_DIR.'class.sla.php');
 include_once(INCLUDE_DIR.'class.canned.php');
 require_once(INCLUDE_DIR.'class.dynamic_forms.php');
+require_once(INCLUDE_DIR.'class.forms-matagot.php');
 require_once(INCLUDE_DIR.'class.user.php');
 require_once(INCLUDE_DIR.'class.collaborator.php');
 require_once(INCLUDE_DIR.'class.task.php');
@@ -2697,8 +2698,26 @@ implements RestrictedAccess, Threadable {
                     ON (ticket.status_id=status.id
                             AND status.state=\'closed\' ) '
                 .'WHERE 1 '
-                . $where;
+                . $where
 
+                .'UNION SELECT \'myclosed\', count( ticket.ticket_id ) AS tickets '
+                .'FROM ' . TICKET_TABLE . ' ticket '
+                .'INNER JOIN '.TICKET_STATUS_TABLE. ' status
+                    ON (ticket.status_id=status.id
+                            AND status.state=\'closed\' ) '
+                .'WHERE ticket.staff_id = ' . db_input($staff->getId()) . ' '
+                . $where
+
+                .'UNION SELECT \'myoverdue\', count( ticket.ticket_id ) AS tickets '
+                .'FROM ' . TICKET_TABLE . ' ticket '
+                .'INNER JOIN '.TICKET_STATUS_TABLE. ' status
+                	ON (ticket.status_id=status.id
+                            AND status.state=\'open\' ) '
+                .'WHERE ticket.staff_id = ' . db_input($staff->getId()) . ' '
+                	.'AND ticket.isoverdue =1 '
+                . $where
+                
+        		;
         $res = db_query($sql);
         $stats = array();
         while($row = db_fetch_row($res)) {
@@ -3117,12 +3136,25 @@ implements RestrictedAccess, Threadable {
         foreach ($topic_forms as $topic_form) {
             $topic_form->setTicketId($id);
             $topic_form->save();
+            
+            if($code == null) $code = $topic_form->getAnswer('code');
         }
 
         $ticket->loadDynamicData();
 
         $dept = $ticket->getDept();
 
+        // Book the code, if any
+        if ($code && ($code=Code::lookup($code->getValue()))) {
+        	$code->set('ticket_id', $id);
+			$code->save();
+        }
+        
+        // Fill-in the external Support Ticket form, if any
+        if(isset($vars['forwardToUrl'])) {
+        	FA_ForwardToAsmodee::forwardToUrl($ticket, $vars['forwardToUrl']);
+        }
+        
         // Add organizational collaborators
         if ($org && $org->autoAddCollabs()) {
             $pris = $org->autoAddPrimaryContactsAsCollabs();
@@ -3246,7 +3278,7 @@ implements RestrictedAccess, Threadable {
         if (!$thisstaff || !$thisstaff->hasPerm(TicketModel::PERM_CREATE))
             return false;
 
-        if($vars['source'] && !in_array(strtolower($vars['source']),array('email','phone','other')))
+        if($vars['source'] && !in_array(strtolower($vars['source']),array('email','phone','postmail','other')))
             $errors['source']=sprintf(__('Invalid source given - %s'),Format::htmlchars($vars['source']));
 
         if (!$vars['uid']) {
