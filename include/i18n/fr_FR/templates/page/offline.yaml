@@ -1,0 +1,5 @@
+---
+notes: "La page hors connexion s'affiche dans le portail client lorsque le support d'assistance est hors connexion."
+name: Hors-ligne
+body: |-
+  <div><h1> <span style="font-size: medium">  Support hors Ligne</span></h1> <p>Merci d'utiliser notre outil de support.</p> <p>Notre helpdesk est actuellement hors ligne . Veuillez réessayer ultérieurement.</p> </div>

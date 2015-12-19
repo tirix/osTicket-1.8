@@ -1,0 +1,5 @@
+---
+notes: "Envoyées aux utilisateurs lorsqu'ils ont dépassé la limite maximale de tickets ouverts. La limite peut être configurée dans le panneau d'administration osTicket et est définie par le nombre de tickets ouverts par une adresse e-mail."
+subject: Limite du nombre de Billets ouverts atteinte
+body: |-
+  <h3><strong>Cher %{ticket.name.first},</strong></h3> Vous avez atteint le nombre maximal de billets ouverts autorisés. Pour être en mesure d'ouvrir un autre billet, l'un de vos billets en attente doit être fermé. Pour mettre à jour ou ajouter des commentaires à un billets, <a href="%{url}/tickets.php?e=%{ticket.email}"> connectez vous simplement à notre support</a>. <br><br>Merci, <br/> l'équipe support

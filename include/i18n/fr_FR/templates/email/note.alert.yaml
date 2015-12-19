@@ -1,0 +1,44 @@
+---
+notes: |
+  Envoyé aux membres du personnel lorsqu'une nouvelle note interne est ajoutée à un ticket.
+  Les notes internes ne peuvent être ajoutées que par les membres du personnel.
+subject: Nouvelle alerte interne
+body: |2
+  <h3><strong>Bonjour %{recipient},</strong></h3>
+  Une note interne a été ajouter au ticket <a
+  href="%{ticket.staff_link}">#%{ticket.number}</a>
+  <br>
+  <br>
+  <table>
+  <tbody>
+  <tr>
+      <td>
+          <strong>De</strong>:
+      </td>
+      <td>
+          %{note.poster}
+      </td>
+  </tr>
+  <tr>
+      <td>
+          <strong>Titre</strong>:
+      </td>
+      <td>
+          %{note.title}
+      </td>
+  </tr>
+  </tbody>
+  </table>
+  <br>
+  %{note.message}
+  <br>
+  <br>
+  <hr>
+  Pour répondre/voir le ticket merci de vous<a
+  href="%{ticket.staff_link}">connecter</a> au support
+  <br>
+  <br>
+  <em style="font-size: small; "L’équipe du support</em>
+  <br>
+  <img src="cid:b56944cb4722cc5cda9d1e23a3ea7fbc"
+  alt="Powered by osTicket" width="126" height="19" style="width: 126px;">

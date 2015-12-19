@@ -1,0 +1,36 @@
+---
+- 
+  type: ticket-status
+  name: Statut du billet
+  name_plural: Statut des billets
+  sort_mode: SortCol
+  masks: 13
+  notes: Statut des billets
+  properties:
+    title: Propriétés du statut des tickets
+    instructions: "Propriétés qui peuvent être définies sur le statut d'un billet."
+    deletable: false
+    fields:
+      - 
+        type: state
+        name: state
+        label: État 
+        required: true
+        sort: 1
+        edit_mask: 63
+        configuration:
+          prompt: "État d'un billet"
+      - 
+        type: memo
+        name: description
+        label: Description
+        required: false
+        sort: 3
+        edit_mask: 15
+        configuration:
+          rows: 2
+          cols: 40
+          html: false
+          length: 100
+  configuration:
+    handler: TicketStatusList

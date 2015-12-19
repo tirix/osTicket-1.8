@@ -1,0 +1,22 @@
+---
+add_new_agent:
+  title: Ajouter nouvel Agent
+  content: ""
+agents:
+  title: Agents
+  content: ""
+name:
+  title: Nom
+  content: ""
+username:
+  title: "Nom d'utilisateur"
+  content: ""
+status:
+  title: État
+  content: ""
+created:
+  title: Créé
+  content: ""
+last_login:
+  title: Date de la dernière connexion
+  content: ""
