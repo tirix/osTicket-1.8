@@ -18,6 +18,7 @@
 **********************************************************************/
 require_once(INCLUDE_DIR . 'class.orm.php');
 require_once(INCLUDE_DIR . 'class.forms.php');
+require_once(INCLUDE_DIR . 'class.forms-matagot.php');
 require_once(INCLUDE_DIR . 'class.list.php');
 require_once(INCLUDE_DIR . 'class.filter.php');
 require_once(INCLUDE_DIR . 'class.signal.php');
@@ -990,6 +991,23 @@ class DynamicFormEntry extends VerySimpleModel {
                 = $info[$field->get('name')] = $a->getValue();
         }
         return $info;
+    }
+
+    function hasAnyVisibleFields($user=false) {
+        global $thisstaff, $thisclient;
+        $user = $user ?: $thisstaff ?: $thisclient;
+        $visible = 0;
+        $isstaff = $user instanceof Staff;
+        foreach ($this->getFields() as $F) {
+            if ($isstaff) {
+                if ($F->isVisibleToStaff())
+                    $visible++;
+            }
+            elseif ($F->isVisibleToUsers()) {
+                $visible++;
+            }
+        }
+        return $visible > 0;
     }
 
     function forTicket($ticket_id, $force=false) {
