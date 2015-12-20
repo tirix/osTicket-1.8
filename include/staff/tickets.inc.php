@@ -385,6 +385,12 @@ return false;">
     </div>
 </div>
 <div class="clear"></div>
+<form action="tickets.php" method="POST" name='tickets' id="tickets">
+<?php csrf_token(); ?>
+ <input type="hidden" name="a" value="mass_process" >
+ <input type="hidden" name="do" id="action" value="" >
+ <input type="hidden" name="status" value="<?php echo
+ Format::htmlchars($_REQUEST['status'], true); ?>" >
  <table class="list" border="0" cellspacing="1" cellpadding="2" width="940">
     <thead>
         <tr>
