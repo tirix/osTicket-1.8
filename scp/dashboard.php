@@ -48,21 +48,5 @@ $ost->addExtraHeader('<meta name="tip-namespace" content="dashboard.dashboard" /
 
 require(STAFFINC_DIR.'header.inc.php');
 require_once(STAFFINC_DIR.'dashboard.inc.php');
-// TODO move to dashboard.inc.php
-?>
-<hr/>
-<h2><?php echo __('Statistics'); ?>&nbsp;<i class="help-tip icon-question-sign" href="#statistics"></i></h2>
-<p><?php echo __('Statistics of tickets organized by department, help topic, and agent.');?></p>
-<ul class="nav nav-tabs" id="tabular-navigation"></ul>
-
-<div id="table-here"></div>
-
-<hr/>
-<h2><?php echo 'Matagot Custom Export'; ?>&nbsp;<i class="help-tip icon-question-sign" href="#statistics"></i></h2>
-<p><?php echo 'Export de tous les tickets, au format CSV.';?></p>
-
-<a href="matagot-export.php">Export</a>
-
-<?php
 include(STAFFINC_DIR.'footer.inc.php');
 ?>

@@ -120,3 +120,11 @@ foreach ($groups as $g=>$desc) {
 <script>
     $.drawPlots(<?php echo JsonDataEncoder::encode($report->getPlotData()); ?>);
 </script>
+<hr/>
+<h2><?php echo 'Matagot Custom Export'; ?>&nbsp;<i class="help-tip icon-question-sign" href="#statistics"></i></h2>
+<p><?php echo 'Export de tous les tickets, au format CSV.';?></p>
+
+<div style="margin-top: 5px">
+	<i class="icon-download"></i>
+	<a href="matagot-export.php"><?php echo __('Export'); ?></a>
+</div>
