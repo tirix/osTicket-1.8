@@ -4,9 +4,12 @@ global $thisstaff;
 $role = $thisstaff->getRole($ticket->getDeptId());
 
 $tasks = Task::objects()
-    ->select_related('dept', 'staff')
+    ->select_related('dept', 'staff', 'team')
     ->order_by('-created');
 
+$tasks->filter(array(
+            'object_id' => $ticket->getId(),
+            'object_type' => 'T'));
 
 $count = $tasks->count();
 $pageNav = new Pagenate($count,1, 100000); //TODO: support ajax based pages
@@ -14,7 +17,7 @@ $showing = $pageNav->showing().' '._N('task', 'tasks', $count);
 
 ?>
 <div id="tasks_content" style="display:block;">
-<div style="width:700px; float:left;">
+<div class="pull-left">
    <?php
     if ($count) {
         echo '<strong>'.$showing.'</strong>';
@@ -24,24 +27,29 @@ $showing = $pageNav->showing().' '._N('task', 'tasks', $count);
     }
    ?>
 </div>
-<div style="float:right;text-align:right;padding-right:5px;">
+<div class="pull-right">
     <?php
     if ($role && $role->hasPerm(Task::PERM_CREATE)) { ?>
         <a
-        class="Icon newTicket task-action"
+        class="green button action-button ticket-task-action"
         data-url="tickets.php?id=<?php echo $ticket->getId(); ?>#tasks"
-        data-dialog='{"size":"large"}'
+        data-dialog-config='{"size":"large"}'
         href="#tickets/<?php
-            echo $ticket->getId(); ?>/add-task"> <?php
+            echo $ticket->getId(); ?>/add-task">
+            <i class="icon-plus-sign"></i> <?php
             print __('Add New Task'); ?></a>
     <?php
-    } ?>
+    }
+    if ($count)
+        Task::getAgentActions($thisstaff, array('morelabel' => __('Options')));
+    ?>
 </div>
-<br/>
+<div class="clear"></div>
 <div>
 <?php
 if ($count) { ?>
-<form action="#tickets/<?php echo $ticket->getId(); ?>/tasks" method="POST" name='tasks' style="padding-top:10px;">
+<form action="#tickets/<?php echo $ticket->getId(); ?>/tasks" method="POST"
+    name='tasks' id="tasks" style="padding-top:7px;">
 <?php csrf_token(); ?>
  <input type="hidden" name="a" value="mass_process" >
  <input type="hidden" name="do" id="action" value="" >
@@ -49,8 +57,7 @@ if ($count) { ?>
     <thead>
         <tr>
             <?php
-            //TODO: support mass actions.
-            if (0) {?>
+            if (1) {?>
             <th width="8px">&nbsp;</th>
             <?php
             } ?>
@@ -66,6 +73,7 @@ if ($count) { ?>
     <?php
     foreach($tasks as $task) {
         $id = $task->getId();
+        $access = $task->checkStaffPerm($thisstaff);
         $assigned='';
         if ($task->staff)
             $assigned=sprintf('<span class="Icon staffAssigned">%s</span>',
@@ -76,31 +84,38 @@ if ($count) { ?>
         $title = Format::htmlchars(Format::truncate($task->getTitle(),40));
         $threadcount = $task->getThread() ?
             $task->getThread()->getNumEntries() : 0;
+
+        if ($access)
+            $viewhref = sprintf('#tickets/%d/tasks/%d/view', $ticket->getId(), $id);
+        else
+            $viewhref = '#';
+
         ?>
         <tr id="<?php echo $id; ?>">
-            <?php
-            //Implement mass  action....if need be.
-            if (0) { ?>
             <td align="center" class="nohover">
                 <input class="ckb" type="checkbox" name="tids[]"
                 value="<?php echo $id; ?>" <?php echo $sel?'checked="checked"':''; ?>>
             </td>
-            <?php
-            } ?>
             <td align="center" nowrap>
               <a class="Icon no-pjax preview"
                 title="<?php echo __('Preview Task'); ?>"
-                href="#tasks/<?php echo $id; ?>/view"
+                href="<?php echo $viewhref; ?>"
                 data-preview="#tasks/<?php echo $id; ?>/preview"
                 ><?php echo $task->getNumber(); ?></a></td>
             <td align="center" nowrap><?php echo
             Format::datetime($task->created); ?></td>
             <td><?php echo $status; ?></td>
-            <td><a <?php if ($flag) { ?> class="no-pjax"
-                    title="<?php echo ucfirst($flag); ?> Task" <?php } ?>
-                    href="#tasks/<?php echo $id; ?>/view"><?php
-                echo $title; ?></a>
+            <td>
+                <?php
+                if ($access) { ?>
+                    <a <?php if ($flag) { ?> class="no-pjax"
+                        title="<?php echo ucfirst($flag); ?> Task" <?php } ?>
+                        href="<?php echo $viewhref; ?>"><?php
+                    echo $title; ?></a>
                  <?php
+                } else {
+                     echo $title;
+                }
                     if ($threadcount>1)
                         echo "<small>($threadcount)</small>&nbsp;".'<i
                             class="icon-fixed-width icon-comments-alt"></i>&nbsp;';
@@ -127,28 +142,42 @@ if ($count) { ?>
 </div>
 <script type="text/javascript">
 $(function() {
-    $(document).on('click.tasks', 'tbody.tasks a, a#reload-task', function(e) {
+
+    $(document).off('click.taskv');
+    $(document).on('click.taskv', 'tbody.tasks a, a#reload-task', function(e) {
         e.preventDefault();
-        var url = 'ajax.php/'+$(this).attr('href').substr(1);
-        var $container = $('div#task_content');
-        $container.load(url, function () {
-            $('.tip_box').remove();
-            $('div#tasks_content').hide();
-        }).show();
+        e.stopImmediatePropagation();
+        if ($(this).attr('href').length > 1) {
+            var url = 'ajax.php/'+$(this).attr('href').substr(1);
+            var $container = $('div#task_content');
+            var $stop = $('ul#ticket_tabs').offset().top;
+            $.pjax({url: url, container: $container, push: false, scrollTo: $stop})
+            .done(
+                function() {
+                $container.show();
+                $('.tip_box').remove();
+                $('div#tasks_content').hide();
+                });
+        } else {
+            $(this).trigger('mouseenter');
+        }
+
         return false;
      });
-    $(document).off('.task-action');
-    $(document).on('click.task-action', 'a.task-action', function(e) {
+    // Ticket Tasks
+    $(document).off('.ticket-task-action');
+    $(document).on('click.ticket-task-action', 'a.ticket-task-action', function(e) {
         e.preventDefault();
         var url = 'ajax.php/'
         +$(this).attr('href').substr(1)
         +'?_uid='+new Date().getTime();
         var $redirect = $(this).data('href');
-        var $options = $(this).data('dialog');
+        var $options = $(this).data('dialogConfig');
         $.dialog(url, [201], function (xhr) {
             var tid = parseInt(xhr.responseText);
             if (tid) {
-                var url = 'ajax.php/tasks/'+tid+'/view';
+                var url = 'ajax.php/tickets/'+<?php echo $ticket->getId();
+                ?>+'/tasks/'+tid+'/view';
                 var $container = $('div#task_content');
                 $container.load(url, function () {
                     $('.tip_box').remove();
@@ -160,7 +189,5 @@ $(function() {
         }, $options);
         return false;
     });
-
-
 });
 </script>

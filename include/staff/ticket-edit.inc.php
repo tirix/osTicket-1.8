@@ -11,19 +11,23 @@ if ($_POST)
     $info['duedate'] = Format::date(strtotime($info['duedate']), false, false, 'UTC');
 ?>
 <form action="tickets.php?id=<?php echo $ticket->getId(); ?>&a=edit" method="post" id="save"  enctype="multipart/form-data">
- <?php csrf_token(); ?>
- <input type="hidden" name="do" value="update">
- <input type="hidden" name="a" value="edit">
- <input type="hidden" name="id" value="<?php echo $ticket->getId(); ?>">
- <h2><?php echo sprintf(__('Update Ticket #%s'),$ticket->getNumber());?></h2>
- <table class="form_table" width="940" border="0" cellspacing="0" cellpadding="2">
-    <tbody>
-        <tr>
-            <th colspan="2">
-                <em><strong><?php echo __('User Information'); ?></strong>: <?php echo __('Currently selected user'); ?></em>
-            </th>
-        </tr>
-    <?php
+    <?php csrf_token(); ?>
+    <input type="hidden" name="do" value="update">
+    <input type="hidden" name="a" value="edit">
+    <input type="hidden" name="id" value="<?php echo $ticket->getId(); ?>">
+    <div style="margin-bottom:20px; padding-top:5px;">
+        <div class="pull-left flush-left">
+            <h2><?php echo sprintf(__('Update Ticket #%s'),$ticket->getNumber());?></h2>
+        </div>
+    </div>
+    <table class="form_table" width="940" border="0" cellspacing="0" cellpadding="2">
+        <tbody>
+            <tr>
+                <th colspan="2">
+                    <em><strong><?php echo __('User Information'); ?></strong>: <?php echo __('Currently selected user'); ?></em>
+                </th>
+            </tr>
+        <?php
     if(!$info['user_id'] || !($user = User::lookup($info['user_id'])))
         $user = $ticket->getUser();
     ?>
@@ -40,7 +44,7 @@ if ($_POST)
             <span id="client-name"><?php echo Format::htmlchars($user->getName()); ?></span>
             &lt;<span id="client-email"><?php echo $user->getEmail(); ?></span>&gt;
             </a>
-            <a class="action-button" style="overflow:inherit" href="#"
+            <a class="inline action-button" style="overflow:inherit" href="#"
                 onclick="javascript:
                     $.userLookup('ajax.php/tickets/<?php echo $ticket->getId(); ?>/change-user',
                             function(user) {
@@ -138,7 +142,6 @@ if ($_POST)
         <?php if ($forms)
             foreach ($forms as $form) {
                 $form->render(true, false, array('mode'=>'edit','width'=>160,'entry'=>$form));
-                print $form->getForm()->getMedia();
         } ?>
 </table>
 <table class="form_table" width="940" border="0" cellspacing="0" cellpadding="2">
@@ -157,7 +160,7 @@ if ($_POST)
         </tr>
     </tbody>
 </table>
-<p style="padding-left:250px;">
+<p style="text-align:center;">
     <input type="submit" name="submit" value="<?php echo __('Save');?>">
     <input type="reset"  name="reset"  value="<?php echo __('Reset');?>">
     <input type="button" name="cancel" value="<?php echo __('Cancel');?>" onclick='window.location.href="tickets.php?id=<?php echo $ticket->getId(); ?>"'>
@@ -167,17 +170,24 @@ if ($_POST)
     <div class="body"></div>
 </div>
 <script type="text/javascript">
-$('table.dynamic-forms').sortable({
-  items: 'tbody',
-  handle: 'th',
-  helper: function(e, ui) {
-    ui.children().each(function() {
-      $(this).children().each(function() {
-        $(this).width($(this).width());
-      });
++(function() {
+  var I = setInterval(function() {
+    if (!$.fn.sortable)
+      return;
+    clearInterval(I);
+    $('table.dynamic-forms').sortable({
+      items: 'tbody',
+      handle: 'th',
+      helper: function(e, ui) {
+        ui.children().each(function() {
+          $(this).children().each(function() {
+            $(this).width($(this).width());
+          });
+        });
+        ui=ui.clone().css({'background-color':'white', 'opacity':0.8});
+        return ui;
+      }
     });
-    ui=ui.clone().css({'background-color':'white', 'opacity':0.8});
-    return ui;
-  }
-});
+  }, 20);
+})();
 </script>

@@ -82,7 +82,7 @@ class Mailer {
     function addAttachment(Attachment $attachment) {
         // XXX: This looks too assuming; however, the attachment processor
         // in the ::send() method seems hard coded to expect this format
-        $this->attachments[$attachment->file_id] = $attachment->file;
+        $this->attachments[$attachment->file_id] = $attachment;
     }
 
     function addFile(AttachmentFile $file) {
@@ -209,6 +209,7 @@ class Mailer {
         if (count($parts) < 2)
             return $rv;
 
+        $self = get_called_class();
         $decoders = array(
         'A' => function($id, $tag) use ($sig) {
             // Old format was VA-B-C-D@sig, where C was the packed tag and D
@@ -221,11 +222,12 @@ class Mailer {
             }
             return false;
         },
-        'B' => function($id, $tag) {
+        'B' => function($id, $tag) use ($self) {
             $format = 'Vuid/VentryId/VthreadId/auserClass/a*sig';
             if ($tag && ($tag = base64_decode($tag))) {
-                $info = unpack($format, $tag);
-                $sysid = static::getSystemMessageIdCode();
+                if (!($info = @unpack($format, $tag)) || !isset($info['sig']))
+                    return false;
+                $sysid = $self::getSystemMessageIdCode();
                 $shorttag = substr($tag, 0, 13);
                 $chksig = substr(hash_hmac('sha1', $shorttag.$id.$sysid,
                     SECRET_SALT, true), -5);
@@ -349,59 +351,65 @@ class Mailer {
         }
 
         // Make the best effort to add In-Reply-To and References headers
+        $reply_tag = $mid_token = '';
         if (isset($options['thread'])
             && $options['thread'] instanceof ThreadEntry
         ) {
-            if ($references = $options['thread']->getEmailReferences())
-                $headers += array('References' => $references);
             if ($irt = $options['thread']->getEmailMessageId()) {
                 // This is an response from an email, like and autoresponse.
                 // Web posts will not have a email message-id
-                $headers += array('In-Reply-To' => $irt);
+                $headers += array(
+                    'In-Reply-To' => $irt,
+                    'References' => $options['thread']->getEmailReferences()
+                );
             }
-            elseif ($parent = $options['thread']->getParent()) {
+            elseif ($original = $options['thread']->findOriginalEmailMessage()) {
                 // Use the parent item as the email information source. This
                 // will apply for staff replies
                 $headers += array(
-                    'In-Reply-To' => $parent->getEmailMessageId(),
-                    'References' => $parent->getEmailReferences(),
+                    'In-Reply-To' => $original->getEmailMessageId(),
+                    'References' => $original->getEmailReferences(),
                 );
             }
+
+            // Configure the reply tag and embedded message id token
+            $mid_token = $messageId;
+            if ($cfg && $cfg->stripQuotedReply()
+                    && (!isset($options['reply-tag']) || $options['reply-tag']))
+                $reply_tag = $cfg->getReplySeparator() . '<br/><br/>';
         }
 
-        // Use Mail_mime default initially
-        $eol = null;
+        // Use general failsafe default initially
+        $eol = "\n";
 
         // MAIL_EOL setting can be defined in `ost-config.php`
         if (defined('MAIL_EOL') && is_string(MAIL_EOL)) {
             $eol = MAIL_EOL;
         }
-        // The Suhosin patch will muck up the line endings in some
-        // cases
-        //
-        // References:
-        // https://github.com/osTicket/osTicket-1.8/issues/202
-        // http://pear.php.net/bugs/bug.php?id=12032
-        // http://us2.php.net/manual/en/function.mail.php#97680
-        elseif ((extension_loaded('suhosin') || defined("SUHOSIN_PATCH"))
-            && !$this->getSMTPInfo()
-        ) {
-            $eol = "\n";
-        }
         $mime = new Mail_mime($eol);
+
+        // Add in extra attachments, if any from template variables
+        if ($message instanceof TextWithExtras
+            && ($files = $message->getFiles())
+        ) {
+            foreach ($files as $F) {
+                $file = $F->getFile();
+                $mime->addAttachment($file->getData(),
+                    $file->getType(), $file->getName(), false);
+            }
+        }
 
         // If the message is not explicitly declared to be a text message,
         // then assume that it needs html processing to create a valid text
         // body
         $isHtml = true;
         if (!(isset($options['text']) && $options['text'])) {
-            $tag = '';
-            if ($cfg && $cfg->stripQuotedReply()
-                    && (!isset($options['reply-tag']) || $options['reply-tag']))
-                $tag = '<div>'.$cfg->getReplySeparator() . '<br/><br/></div>';
             // Embed the data-mid in such a way that it should be included
             // in a response
-            $message = "<div data-mid=\"$messageId\">{$tag}{$message}</div>";
+            if ($reply_tag || $mid_token) {
+                $message = "<div style=\"display:none\"
+                    class=\"mid-$mid_token\">$reply_tag</div>$message";
+            }
             $txtbody = rtrim(Format::html2text($message, 90, false))
                 . ($messageId ? "\nRef-Mid: $messageId\n" : '');
             $mime->setTXTBody($txtbody);
@@ -411,7 +419,7 @@ class Mailer {
             $isHtml = false;
         }
 
-        if ($isHtml && $cfg && $cfg->isHtmlThreadEnabled()) {
+        if ($isHtml && $cfg && $cfg->isRichTextEnabled()) {
             // Pick a domain compatible with pear Mail_Mime
             $matches = array();
             if (preg_match('#(@[0-9a-zA-Z\-\.]+)#', $this->getFromAddress(), $matches)) {
@@ -426,11 +434,16 @@ class Mailer {
                 function($match) use ($domain, $mime, $self) {
                     $file = false;
                     foreach ($self->attachments as $id=>$F) {
+                        if ($F instanceof Attachment)
+                            $F = $F->getFile();
                         if (strcasecmp($F->getKey(), $match[1]) === 0) {
                             $file = $F;
                             break;
                         }
                     }
+                    if (!$file)
+                        // Not attached yet attempt to attach it inline
+                        $file = AttachmentFile::lookup($match[1]);
                     if (!$file)
                         return $match[0];
                     $mime->addHTMLImage($file->getData(),
@@ -446,8 +459,16 @@ class Mailer {
         //XXX: Attachments
         if(($attachments=$this->getAttachments())) {
             foreach($attachments as $id=>$file) {
+                // Read the filename from the Attachment if possible
+                if ($file instanceof Attachment) {
+                    $filename = $file->getFilename();
+                    $file = $file->getFile();
+                }
+                else {
+                    $filename = $file->getName();
+                }
                 $mime->addAttachment($file->getData(),
-                    $file->getType(), $file->getName(),false);
+                    $file->getType(), $filename, false);
             }
         }
 
@@ -496,21 +517,31 @@ class Mailer {
             // Force reconnect on next ->send()
             unset($smtp_connections[$key]);
 
-            $alert=sprintf(__("Unable to email via SMTP:%1\$s:%2\$d [%3\$s]\n\n%4\$s\n"),
+            $alert=_S("Unable to email via SMTP")
+                    .sprintf(":%1\$s:%2\$d [%3\$s]\n\n%4\$s\n",
                     $smtp['host'], $smtp['port'], $smtp['username'], $result->getMessage());
             $this->logError($alert);
         }
 
         //No SMTP or it failed....use php's native mail function.
         $mail = mail::factory('mail');
-        return PEAR::isError($mail->send($to, $headers, $body))?false:$messageId;
+        // Ensure the To: header is properly encoded.
+        $to = $headers['To'];
+        $result = $mail->send($to, $headers, $body);
+        if(!PEAR::isError($result))
+            return $messageId;
 
+        $alert=_S("Unable to email via php mail function")
+                .sprintf(":%1\$s\n\n%2\$s\n",
+                $to, $result->getMessage());
+        $this->logError($alert);
+        return false;
     }
 
     function logError($error) {
         global $ost;
         //NOTE: Admin alert override - don't email when having email trouble!
-        $ost->logError(__('Mailer Error'), $error, false);
+        $ost->logError(_S('Mailer Error'), $error, false);
     }
 
     /******* Static functions ************/

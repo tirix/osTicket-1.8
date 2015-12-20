@@ -1,53 +1,56 @@
 if (!RedactorPlugins) var RedactorPlugins = {};
 
-RedactorPlugins.definedlinks = function()
+(function($)
 {
-	return {
-		init: function()
-		{
-			if (!this.opts.definedLinks) return;
+    $.Redactor.prototype.definedlinks = function()
+    {
+        return {
+            init: function()
+            {
+                if (!this.opts.definedLinks) return;
 
-			this.modal.addCallback('link', $.proxy(this.definedlinks.load, this));
+                this.modal.addCallback('link', $.proxy(this.definedlinks.load, this));
 
-		},
-		load: function()
-		{
-			var $select = $('<select id="redactor-defined-links" />');
-			$('#redactor-modal-link-insert').prepend($select);
+            },
+            load: function()
+            {
+                var $select = $('<select id="redactor-defined-links" />');
+                $('#redactor-modal-link-insert').prepend($select);
 
-			this.definedlinks.storage = {};
+                this.definedlinks.storage = {};
 
-			$.getJSON(this.opts.definedLinks, $.proxy(function(data)
-			{
-				$.each(data, $.proxy(function(key, val)
-				{
-					this.definedlinks.storage[key] = val;
-					$select.append($('<option>').val(key).html(val.name));
+                $.getJSON(this.opts.definedLinks, $.proxy(function(data)
+                {
+                    $.each(data, $.proxy(function(key, val)
+                    {
+                        this.definedlinks.storage[key] = val;
+                        $select.append($('<option>').val(key).html(val.name));
 
-				}, this));
+                    }, this));
 
-				$select.on('change', $.proxy(this.definedlinks.select, this));
+                    $select.on('change', $.proxy(this.definedlinks.select, this));
 
-			}, this));
+                }, this));
 
-		},
-		select: function(e)
-		{
-			var key = $(e.target).val();
-			var name = '', url = '';
-			if (key !== 0)
-			{
-				name = this.definedlinks.storage[key].name;
-				url = this.definedlinks.storage[key].url;
-			}
+            },
+            select: function(e)
+            {
+                var key = $(e.target).val();
+                var name = '', url = '';
+                if (key !== 0)
+                {
+                    name = this.definedlinks.storage[key].name;
+                    url = this.definedlinks.storage[key].url;
+                }
 
-			$('#redactor-link-url').val(url);
+                $('#redactor-link-url').val(url);
 
-			var $el = $('#redactor-link-url-text');
-			if ($el.val() === '') $el.val(name);
-		}
-	};
-};
+                var $el = $('#redactor-link-url-text');
+                if ($el.val() === '') $el.val(name);
+            }
+        };
+    };
+})(jQuery);
 
 RedactorPlugins.fontcolor = function()
 {
@@ -86,21 +89,22 @@ RedactorPlugins.fontcolor = function()
 			var func = function(e)
 			{
 				e.preventDefault();
-				self.fontcolor.set($(this).data('rule'), $(this).attr('rel'));
+                var $this = $(e.target);
+				self.fontcolor.set(rule, $this.attr('rel'));
 			};
+            $dropdown.on('click', 'a.redactor.color-swatch', func);
+
+            var template = $('<a class="redactor color-swatch" href="#"></a>');
 
 			for (var z = 0; z < len; z++)
 			{
 				var color = colors[z];
-
-				var $swatch = $('<a rel="' + color + '" data-rule="' + rule +'" href="#" style="float: left; font-size: 0; border: 2px solid #fff; padding: 0; margin: 0; width: 22px; height: 22px;"></a>');
+				var $swatch = template.clone().attr('rel', color);
 				$swatch.css('background-color', color);
-				$swatch.on('click', func);
-
 				$dropdown.append($swatch);
 			}
 
-			var $elNone = $('<a href="#" style="display: block; clear: both; padding: 5px; font-size: 12px; line-height: 1;"></a>').html(this.lang.get('none'));
+			var $elNone = $('<a href="#" style="redactor uncolor"></a>').html(this.lang.get('none'));
 			$elNone.on('click', $.proxy(function(e)
 			{
 				e.preventDefault();
@@ -270,387 +274,546 @@ RedactorPlugins.fullscreen = function()
 	};
 };
 
-RedactorPlugins.imagemanager = function()
+(function($)
 {
-	return {
-		init: function()
-		{
-			if (!this.opts.imageManagerJson) return;
+    $.Redactor.prototype.imagemanager = function()
+    {
+        return {
+            init: function()
+            {
+                if (!this.opts.imageManagerJson) return;
 
-			this.modal.addCallback('image', this.imagemanager.load);
-		},
-		load: function()
-		{
-			var $modal = this.modal.getModal();
+                this.modal.addCallback('image', this.imagemanager.load);
+            },
+            load: function()
+            {
+                var $modal = this.modal.getModal();
 
-			this.modal.createTabber($modal);
-			this.modal.addTab(1, 'Upload', 'active');
-			this.modal.addTab(2, 'Choose');
+                this.modal.createTabber($modal);
+                this.modal.addTab(1, 'Upload', 'active');
+                this.modal.addTab(2, 'Choose');
 
-			$('#redactor-modal-image-droparea').addClass('redactor-tab redactor-tab1');
+                $('#redactor-modal-image-droparea').addClass('redactor-tab redactor-tab1');
 
-			var $box = $('<div id="redactor-image-manager-box" style="overflow: auto; height: 300px;" class="redactor-tab redactor-tab2">').hide();
-			$modal.append($box);
+                var $box = $('<div id="redactor-image-manager-box" style="overflow: auto; height: 300px;" class="redactor-tab redactor-tab2">').hide();
+                $modal.append($box);
 
-			$.ajax({
-			  dataType: "json",
-			  cache: false,
-			  url: this.opts.imageManagerJson,
-			  success: $.proxy(function(data)
-				{
-					$.each(data, $.proxy(function(key, val)
-					{
-						// title
-						var thumbtitle = '';
-						if (typeof val.title !== 'undefined') thumbtitle = val.title;
+                $.ajax({
+                  dataType: "json",
+                  cache: false,
+                  url: this.opts.imageManagerJson,
+                  success: $.proxy(function(data)
+                    {
+                        $.each(data, $.proxy(function(key, val)
+                        {
+                            // title
+                            var thumbtitle = '';
+                            if (typeof val.title !== 'undefined') thumbtitle = val.title;
 
-						var img = $('<img src="' + val.thumb + '" rel="' + val.image + '" title="' + thumbtitle + '" style="width: 100px; height: 75px; cursor: pointer;" />');
-						$('#redactor-image-manager-box').append(img);
-						$(img).click($.proxy(this.imagemanager.insert, this));
+                            var img = $('<img src="' + val.thumb + '" rel="' + val.image + '" title="' + thumbtitle + '" style="width: 100px; height: 75px; cursor: pointer;" />');
+                            $('#redactor-image-manager-box').append(img);
+                            $(img).click($.proxy(this.imagemanager.insert, this));
 
-					}, this));
-
-
-				}, this)
-			});
+                        }, this));
 
 
-		},
-		insert: function(e)
-		{
-			this.image.insert('<img src="' + $(e.target).attr('rel') + '" alt="' + $(e.target).attr('title') + '">');
-		}
-	};
-};
+                    }, this)
+                });
 
-RedactorPlugins.table = function()
+
+            },
+            insert: function(e)
+            {
+                this.image.insert('<img src="' + $(e.target).attr('rel') + '" alt="' + $(e.target).attr('title') + '">');
+            }
+        };
+    };
+})(jQuery);
+
+(function($)
 {
-	return {
-		getTemplate: function()
-		{
-			return String()
-			+ '<section id="redactor-modal-table-insert">'
-				+ '<label>' + this.lang.get('rows') + '</label>'
-				+ '<input type="text" size="5" value="2" id="redactor-table-rows" />'
-				+ '<label>' + this.lang.get('columns') + '</label>'
-				+ '<input type="text" size="5" value="3" id="redactor-table-columns" />'
-			+ '</section>';
-		},
-		init: function()
-		{
-
-			var dropdown = {};
-
-			dropdown.insert_table = { title: this.lang.get('insert_table'), func: this.table.show };
-			dropdown.insert_row_above = { title: this.lang.get('insert_row_above'), func: this.table.addRowAbove };
-			dropdown.insert_row_below = { title: this.lang.get('insert_row_below'), func: this.table.addRowBelow };
-			dropdown.insert_column_left = { title: this.lang.get('insert_column_left'), func: this.table.addColumnLeft };
-			dropdown.insert_column_right = { title: this.lang.get('insert_column_right'), func: this.table.addColumnRight };
-			dropdown.add_head = { title: this.lang.get('add_head'), func: this.table.addHead };
-			dropdown.delete_head = { title: this.lang.get('delete_head'), func: this.table.deleteHead };
-			dropdown.delete_column = { title: this.lang.get('delete_column'), func: this.table.deleteColumn };
-			dropdown.delete_row = { title: this.lang.get('delete_row'), func: this.table.deleteRow };
-			dropdown.delete_table = { title: this.lang.get('delete_table'), func: this.table.deleteTable };
-
-			this.observe.addButton('td', 'table');
-			this.observe.addButton('th', 'table');
-
-			var button = this.button.addBefore('link', 'table', this.lang.get('table'));
-			this.button.addDropdown(button, dropdown);
-		},
-		show: function()
-		{
-			this.modal.addTemplate('table', this.table.getTemplate());
-
-			this.modal.load('table', this.lang.get('insert_table'), 300);
-			this.modal.createCancelButton();
-
-			var button = this.modal.createActionButton(this.lang.get('insert'));
-			button.on('click', this.table.insert);
-
-			this.selection.save();
-			this.modal.show();
-
-			$('#redactor-table-rows').focus();
-
-		},
-		insert: function()
-		{
-
-			var rows = $('#redactor-table-rows').val(),
-				columns = $('#redactor-table-columns').val(),
-				$tableBox = $('<div>'),
-				tableId = Math.floor(Math.random() * 99999),
-				$table = $('<table id="table' + tableId + '"><tbody></tbody></table>'),
-				i, $row, z, $column;
-
-			for (i = 0; i < rows; i++)
-			{
-				$row = $('<tr>');
-
-				for (z = 0; z < columns; z++)
-				{
-					$column = $('<td>' + this.opts.invisibleSpace + '</td>');
-
-					// set the focus to the first td
-					if (i === 0 && z === 0)
-					{
-						$column.append(this.selection.getMarker());
-					}
-
-					$($row).append($column);
-				}
-
-				$table.append($row);
-			}
-
-			$tableBox.append($table);
-			var html = $tableBox.html();
-
-
-			this.modal.close();
-			this.selection.restore();
-
-			if (this.table.getTable()) return;
-
-			this.buffer.set();
-
-			var current = this.selection.getBlock() || this.selection.getCurrent();
-			if (current && current.tagName != 'BODY')
-			{
-				if (current.tagName == 'LI') current = $(current).closest('ul, ol');
-				$(current).after(html);
-			}
-			else
-			{
-				this.insert.html(html);
-			}
-
-			this.selection.restore();
-
-			var table = this.$editor.find('#table' + tableId);
-
-			if (!this.opts.linebreaks && (this.utils.browser('mozilla') || this.utils.browser('msie')))
-			{
-				var $next = table.next();
-				if ($next.length === 0)
-				{
-					 table.after(this.opts.emptyHtml);
-				}
-			}
-
-			this.observe.buttons();
-
-			table.find('span.redactor-selection-marker').remove();
-			table.removeAttr('id');
-
-			this.code.sync();
-			this.core.setCallback('insertedTable', table);
-		},
-		getTable: function()
-		{
-			var $table = $(this.selection.getParent()).closest('table');
-
-			if (!this.utils.isRedactorParent($table)) return false;
-			if ($table.size() === 0) return false;
-
-			return $table;
-		},
-		restoreAfterDelete: function($table)
-		{
-			this.selection.restore();
-			$table.find('span.redactor-selection-marker').remove();
-			this.code.sync();
-		},
-		deleteTable: function()
-		{
-			var $table = this.table.getTable();
-			if (!$table) return;
-
-			this.buffer.set();
-
-
-			var $next = $table.next();
-			if (!this.opts.linebreaks && $next.length !== 0)
-			{
-				this.caret.setStart($next);
-			}
-			else
-			{
-				this.caret.setAfter($table);
-			}
-
-
-			$table.remove();
-
-			this.code.sync();
-		},
-		deleteRow: function()
-		{
-			var $table = this.table.getTable();
-			if (!$table) return;
-
-			var $current = $(this.selection.getCurrent());
-
-			this.buffer.set();
-
-			var $current_tr = $current.closest('tr');
-			var $focus_tr = $current_tr.prev().length ? $current_tr.prev() : $current_tr.next();
-			if ($focus_tr.length)
-			{
-				var $focus_td = $focus_tr.children('td, th').first();
-				if ($focus_td.length) $focus_td.prepend(this.selection.getMarker());
-			}
-
-			$current_tr.remove();
-			this.table.restoreAfterDelete($table);
-		},
-		deleteColumn: function()
-		{
-			var $table = this.table.getTable();
-			if (!$table) return;
-
-			this.buffer.set();
-
-			var $current = $(this.selection.getCurrent());
-			var $current_td = $current.closest('td, th');
-			var index = $current_td[0].cellIndex;
-
-			$table.find('tr').each($.proxy(function(i, elem)
-			{
-				var $elem = $(elem);
-				var focusIndex = index - 1 < 0 ? index + 1 : index - 1;
-				if (i === 0) $elem.find('td, th').eq(focusIndex).prepend(this.selection.getMarker());
-
-				$elem.find('td, th').eq(index).remove();
-
-			}, this));
-
-			this.table.restoreAfterDelete($table);
-		},
-		addHead: function()
-		{
-			var $table = this.table.getTable();
-			if (!$table) return;
-
-			this.buffer.set();
-
-			if ($table.find('thead').size() !== 0)
-			{
-				this.table.deleteHead();
-				return;
-			}
-
-			var tr = $table.find('tr').first().clone();
-			tr.find('td').html(this.opts.invisibleSpace);
-			$thead = $('<thead></thead>').append(tr);
-			$table.prepend($thead);
-
-			this.code.sync();
-
-		},
-		deleteHead: function()
-		{
-			var $table = this.table.getTable();
-			if (!$table) return;
-
-			var $thead = $table.find('thead');
-			if ($thead.size() === 0) return;
-
-			this.buffer.set();
-
-			$thead.remove();
-			this.code.sync();
-		},
-		addRowAbove: function()
-		{
-			this.table.addRow('before');
-		},
-		addRowBelow: function()
-		{
-			this.table.addRow('after');
-		},
-		addColumnLeft: function()
-		{
-			this.table.addColumn('before');
-		},
-		addColumnRight: function()
-		{
-			this.table.addColumn('after');
-		},
-		addRow: function(type)
-		{
-			var $table = this.table.getTable();
-			if (!$table) return;
-
-			this.buffer.set();
-
-			var $current = $(this.selection.getCurrent());
-			var $current_tr = $current.closest('tr');
-			var new_tr = $current_tr.clone();
-
-			new_tr.find('th').replaceWith(function()
-			{
-				var $td = $('<td>');
-				$td[0].attributes = this.attributes;
-
-				return $td.append($(this).contents());
-			});
-
-			new_tr.find('td').html(this.opts.invisibleSpace);
-
-			if (type == 'after')
-			{
-				$current_tr.after(new_tr);
-			}
-			else
-			{
-				$current_tr.before(new_tr);
-			}
-
-			this.code.sync();
-		},
-		addColumn: function (type)
-		{
-			var $table = this.table.getTable();
-			if (!$table) return;
-
-			var index = 0;
-			var current = $(this.selection.getCurrent());
-
-			this.buffer.set();
-
-			var $current_tr = current.closest('tr');
-			var $current_td = current.closest('td, th');
-
-			$current_tr.find('td, th').each($.proxy(function(i, elem)
-			{
-				if ($(elem)[0] === $current_td[0]) index = i;
-
-			}, this));
-
-			$table.find('tr').each($.proxy(function(i, elem)
-			{
-				var $current = $(elem).find('td, th').eq(index);
-
-				var td = $current.clone();
-				td.html(this.opts.invisibleSpace);
-
-				if (type == 'after')
-				{
-					$current.after(td);
-				}
-				else
-				{
-					$current.before(td);
-				}
-
-			}, this));
-
-			this.code.sync();
-		}
-	};
-};
+    $.Redactor.prototype.table = function()
+    {
+        return {
+            getTemplate: function()
+            {
+                return String()
+                + '<section id="redactor-modal-table-insert">'
+                    + '<label>' + this.lang.get('rows') + '</label>'
+                    + '<input type="text" size="5" value="2" id="redactor-table-rows" />'
+                    + '<label>' + this.lang.get('columns') + '</label>'
+                    + '<input type="text" size="5" value="3" id="redactor-table-columns" />'
+                + '</section>';
+            },
+            init: function()
+            {
+                var dropdown = {};
+
+                dropdown.insert_table = {
+                                    title: this.lang.get('insert_table'),
+                                    func: this.table.show,
+                                    observe: {
+                                        element: 'table',
+                                        in: {
+                                            attr: {
+                                                'class': 'redactor-dropdown-link-inactive',
+                                                'aria-disabled': true,
+                                            }
+                                        }
+                                    }
+                                };
+
+                dropdown.insert_row_above = {
+                                    title: this.lang.get('insert_row_above'),
+                                    func: this.table.addRowAbove,
+                                    observe: {
+                                        element: 'table',
+                                        out: {
+                                            attr: {
+                                                'class': 'redactor-dropdown-link-inactive',
+                                                'aria-disabled': true,
+                                            }
+                                        }
+                                    }
+                                };
+
+                dropdown.insert_row_below = {
+                                    title: this.lang.get('insert_row_below'),
+                                    func: this.table.addRowBelow,
+                                    observe: {
+                                        element: 'table',
+                                        out: {
+                                            attr: {
+                                                'class': 'redactor-dropdown-link-inactive',
+                                                'aria-disabled': true,
+                                            }
+                                        }
+                                    }
+                                };
+
+                dropdown.insert_row_below = {
+                                    title: this.lang.get('insert_row_below'),
+                                    func: this.table.addRowBelow,
+                                    observe: {
+                                        element: 'table',
+                                        out: {
+                                            attr: {
+                                                'class': 'redactor-dropdown-link-inactive',
+                                                'aria-disabled': true,
+                                            }
+                                        }
+                                    }
+                                };
+
+                dropdown.insert_column_left = {
+                                    title: this.lang.get('insert_column_left'),
+                                    func: this.table.addColumnLeft,
+                                    observe: {
+                                        element: 'table',
+                                        out: {
+                                            attr: {
+                                                'class': 'redactor-dropdown-link-inactive',
+                                                'aria-disabled': true,
+                                            }
+                                        }
+                                    }
+                                };
+
+                dropdown.insert_column_right = {
+                                    title: this.lang.get('insert_column_right'),
+                                    func: this.table.addColumnRight,
+                                    observe: {
+                                        element: 'table',
+                                        out: {
+                                            attr: {
+                                                'class': 'redactor-dropdown-link-inactive',
+                                                'aria-disabled': true,
+                                            }
+                                        }
+                                    }
+                                };
+
+                dropdown.add_head = {
+                                    title: this.lang.get('add_head'),
+                                    func: this.table.addHead,
+                                    observe: {
+                                        element: 'table',
+                                        out: {
+                                            attr: {
+                                                'class': 'redactor-dropdown-link-inactive',
+                                                'aria-disabled': true,
+                                            }
+                                        }
+                                    }
+                                };
+
+                dropdown.delete_head = {
+                                    title: this.lang.get('delete_head'),
+                                    func: this.table.deleteHead,
+                                    observe: {
+                                        element: 'table',
+                                        out: {
+                                            attr: {
+                                                'class': 'redactor-dropdown-link-inactive',
+                                                'aria-disabled': true,
+                                            }
+                                        }
+                                    }
+                                };
+
+                dropdown.delete_column = {
+                                    title: this.lang.get('delete_column'),
+                                    func: this.table.deleteColumn,
+                                    observe: {
+                                        element: 'table',
+                                        out: {
+                                            attr: {
+                                                'class': 'redactor-dropdown-link-inactive',
+                                                'aria-disabled': true,
+                                            }
+                                        }
+                                    }
+                                };
+
+                dropdown.delete_row = {
+                                    title: this.lang.get('delete_row'),
+                                    func: this.table.deleteRow,
+                                    observe: {
+                                        element: 'table',
+                                        out: {
+                                            attr: {
+                                                'class': 'redactor-dropdown-link-inactive',
+                                                'aria-disabled': true,
+                                            }
+                                        }
+                                    }
+                                };
+
+                dropdown.delete_row = {
+                                    title: this.lang.get('delete_table'),
+                                    func: this.table.deleteTable,
+                                    observe: {
+                                        element: 'table',
+                                        out: {
+                                            attr: {
+                                                'class': 'redactor-dropdown-link-inactive',
+                                                'aria-disabled': true,
+                                            }
+                                        }
+                                    }
+                                };
+
+                this.observe.addButton('td', 'table');
+                this.observe.addButton('th', 'table');
+
+                var button = this.button.addBefore('link', 'table', this.lang.get('table'));
+                this.button.addDropdown(button, dropdown);
+            },
+            show: function()
+            {
+                this.modal.addTemplate('table', this.table.getTemplate());
+
+                this.modal.load('table', this.lang.get('insert_table'), 300);
+                this.modal.createCancelButton();
+
+                var button = this.modal.createActionButton(this.lang.get('insert'));
+                button.on('click', this.table.insert);
+
+                this.selection.save();
+                this.modal.show();
+
+                $('#redactor-table-rows').focus();
+
+            },
+            insert: function()
+            {
+                this.placeholder.remove();
+
+                var rows = $('#redactor-table-rows').val(),
+                    columns = $('#redactor-table-columns').val(),
+                    $tableBox = $('<div>'),
+                    tableId = Math.floor(Math.random() * 99999),
+                    $table = $('<table id="table' + tableId + '"><tbody></tbody></table>'),
+                    i, $row, z, $column;
+
+                for (i = 0; i < rows; i++)
+                {
+                    $row = $('<tr>');
+
+                    for (z = 0; z < columns; z++)
+                    {
+                        $column = $('<td>' + this.opts.invisibleSpace + '</td>');
+
+                        // set the focus to the first td
+                        if (i === 0 && z === 0)
+                        {
+                            $column.append(this.selection.getMarker());
+                        }
+
+                        $($row).append($column);
+                    }
+
+                    $table.append($row);
+                }
+
+                $tableBox.append($table);
+                var html = $tableBox.html();
+
+                this.modal.close();
+                this.selection.restore();
+
+                if (this.table.getTable()) return;
+
+                this.buffer.set();
+
+                var current = this.selection.getBlock() || this.selection.getCurrent();
+                if (current && current.tagName != 'BODY')
+                {
+                    if (current.tagName == 'LI') current = $(current).closest('ul, ol');
+                    $(current).after(html);
+                }
+                else
+                {
+                    this.insert.html(html, false);
+                }
+
+                this.selection.restore();
+
+                var table = this.$editor.find('#table' + tableId);
+
+                var p = table.prev("p");
+
+                if (p.length > 0 && this.utils.isEmpty(p.html()))
+                {
+                    p.remove();
+                }
+
+                if (!this.opts.linebreaks && (this.utils.browser('mozilla') || this.utils.browser('msie')))
+                {
+                    var $next = table.next();
+                    if ($next.length === 0)
+                    {
+                         table.after(this.opts.emptyHtml);
+                    }
+                }
+
+                this.observe.buttons();
+
+                table.find('span.redactor-selection-marker').remove();
+                table.removeAttr('id');
+
+                this.code.sync();
+                this.core.setCallback('insertedTable', table);
+            },
+            getTable: function()
+            {
+                var $table = $(this.selection.getParent()).closest('table');
+
+                if (!this.utils.isRedactorParent($table)) return false;
+                if ($table.size() === 0) return false;
+
+                return $table;
+            },
+            restoreAfterDelete: function($table)
+            {
+                this.selection.restore();
+                $table.find('span.redactor-selection-marker').remove();
+                this.code.sync();
+            },
+            deleteTable: function()
+            {
+                var $table = this.table.getTable();
+                if (!$table) return;
+
+                this.buffer.set();
+
+
+                var $next = $table.next();
+                if (!this.opts.linebreaks && $next.length !== 0)
+                {
+                    this.caret.setStart($next);
+                }
+                else
+                {
+                    this.caret.setAfter($table);
+                }
+
+
+                $table.remove();
+
+                this.code.sync();
+            },
+            deleteRow: function()
+            {
+            var $table = this.table.getTable();
+            if (!$table) return;
+
+            var $current = $(this.selection.getCurrent());
+
+            this.buffer.set();
+
+            var $current_tr = $current.closest('tr');
+            var $focus_tr = $current_tr.prev().length ? $current_tr.prev() : $current_tr.next();
+            if ($focus_tr.length)
+            {
+                var $focus_td = $focus_tr.children('td, th').first();
+                if ($focus_td.length) $focus_td.prepend(this.selection.getMarker());
+            }
+
+            $current_tr.remove();
+            this.table.restoreAfterDelete($table);
+        },
+            deleteColumn: function()
+            {
+            var $table = this.table.getTable();
+            if (!$table) return;
+
+            this.buffer.set();
+
+            var $current = $(this.selection.getCurrent());
+            var $current_td = $current.closest('td, th');
+            var index = $current_td[0].cellIndex;
+
+            $table.find('tr').each($.proxy(function(i, elem)
+            {
+                var $elem = $(elem);
+                var focusIndex = index - 1 < 0 ? index + 1 : index - 1;
+                if (i === 0) $elem.find('td, th').eq(focusIndex).prepend(this.selection.getMarker());
+
+                $elem.find('td, th').eq(index).remove();
+
+            }, this));
+
+            this.table.restoreAfterDelete($table);
+        },
+            addHead: function()
+            {
+                var $table = this.table.getTable();
+                if (!$table) return;
+
+                this.buffer.set();
+
+                if ($table.find('thead').size() !== 0)
+                {
+                    this.table.deleteHead();
+                    return;
+                }
+
+                var tr = $table.find('tr').first().clone();
+                tr.find('td').replaceWith($.proxy(function()
+                {
+                    return $('<th>').html(this.opts.invisibleSpace);
+                }, this));
+
+                $thead = $('<thead></thead>').append(tr);
+                $table.prepend($thead);
+
+                this.code.sync();
+
+            },
+            deleteHead: function()
+            {
+                var $table = this.table.getTable();
+                if (!$table) return;
+
+                var $thead = $table.find('thead');
+                if ($thead.size() === 0) return;
+
+                this.buffer.set();
+
+                $thead.remove();
+                this.code.sync();
+            },
+            addRowAbove: function()
+            {
+                this.table.addRow('before');
+            },
+            addRowBelow: function()
+            {
+                this.table.addRow('after');
+            },
+            addColumnLeft: function()
+            {
+                this.table.addColumn('before');
+            },
+            addColumnRight: function()
+            {
+                this.table.addColumn('after');
+            },
+            addRow: function(type)
+            {
+                var $table = this.table.getTable();
+                if (!$table) return;
+
+                this.buffer.set();
+
+                var $current = $(this.selection.getCurrent());
+                var $current_tr = $current.closest('tr');
+                var new_tr = $current_tr.clone();
+
+                new_tr.find('th').replaceWith(function()
+                {
+                    var $td = $('<td>');
+                    $td[0].attributes = this.attributes;
+
+                    return $td.append($(this).contents());
+                });
+
+                new_tr.find('td').html(this.opts.invisibleSpace);
+
+                if (type == 'after')
+                {
+                    $current_tr.after(new_tr);
+                }
+                else
+                {
+                    $current_tr.before(new_tr);
+                }
+
+                this.code.sync();
+            },
+            addColumn: function (type)
+            {
+                var $table = this.table.getTable();
+                if (!$table) return;
+
+                var index = 0;
+                var current = $(this.selection.getCurrent());
+
+                this.buffer.set();
+
+                var $current_tr = current.closest('tr');
+                var $current_td = current.closest('td, th');
+
+                $current_tr.find('td, th').each($.proxy(function(i, elem)
+                {
+                    if ($(elem)[0] === $current_td[0]) index = i;
+
+                }, this));
+
+                $table.find('tr').each($.proxy(function(i, elem)
+                {
+                    var $current = $(elem).find('td, th').eq(index);
+
+                    var td = $current.clone();
+                    td.html(this.opts.invisibleSpace);
+
+                    if (type == 'after')
+                    {
+                        $current.after(td);
+                    }
+                    else
+                    {
+                        $current.before(td);
+                    }
+
+                }, this));
+
+                this.code.sync();
+            }
+        };
+    };
+})(jQuery);
 
 RedactorPlugins.textdirection = function() {
   return {
@@ -671,7 +834,7 @@ RedactorPlugins.textdirection = function() {
     setRtl: function()
     {
         var c = this.getCurrent(), s = this.getSelection();
-        this.bufferSet();
+        this.buffer.set();
         if (s.type == 'Range' && s.focusNode.nodeName != 'div') {
             this.linebreakHack(s);
         }
@@ -685,7 +848,7 @@ RedactorPlugins.textdirection = function() {
     setLtr: function()
     {
         var c = this.getCurrent(), s = this.getSelection();
-        this.bufferSet();
+        this.buffer.set();
         if (s.type == 'Range' && s.focusNode.nodeName != 'div') {
             this.linebreakHack(s);
         }
@@ -706,74 +869,81 @@ RedactorPlugins.textdirection = function() {
   };
 };
 
-RedactorPlugins.video = function()
+(function($)
 {
-	return {
-		reUrlYoutube: /https?:\/\/(?:[0-9A-Z-]+\.)?(?:youtu\.be\/|youtube\.com\S*[^\w\-\s])([\w\-]{11})(?=[^\w\-]|$)(?![?=&+%\w.-]*(?:['"][^<>]*>|<\/a>))[?=&+%\w.-]*/ig,
-		reUrlVimeo: /https?:\/\/(www\.)?vimeo.com\/(\d+)($|\/)/,
-		getTemplate: function()
-		{
-			return String()
-			+ '<section id="redactor-modal-video-insert">'
-				+ '<label>' + this.lang.get('video_html_code') + '</label>'
-				+ '<textarea id="redactor-insert-video-area" style="height: 160px;"></textarea>'
-			+ '</section>';
-		},
-		init: function()
-		{
-			var button = this.button.addAfter('image', 'video', this.lang.get('video'));
-			this.button.addCallback(button, this.video.show);
-		},
-		show: function()
-		{
-			this.modal.addTemplate('video', this.video.getTemplate());
+    $.Redactor.prototype.video = function()
+    {
+        return {
+            reUrlYoutube: /https?:\/\/(?:[0-9A-Z-]+\.)?(?:youtu\.be\/|youtube\.com\S*[^\w\-\s])([\w\-]{11})(?=[^\w\-]|$)(?![?=&+%\w.-]*(?:['"][^<>]*>|<\/a>))[?=&+%\w.-]*/ig,
+            reUrlVimeo: /https?:\/\/(www\.)?vimeo.com\/(\d+)($|\/)/,
+            getTemplate: function()
+            {
+                return String()
+                + '<section id="redactor-modal-video-insert">'
+                    + '<label>' + this.lang.get('video_html_code') + '</label>'
+                    + '<textarea id="redactor-insert-video-area" style="height: 160px;"></textarea>'
+                + '</section>';
+            },
+            init: function()
+            {
+                var button = this.button.addAfter('image', 'video', this.lang.get('video'));
+                this.button.addCallback(button, this.video.show);
+            },
+            show: function()
+            {
+                this.modal.addTemplate('video', this.video.getTemplate());
 
-			this.modal.load('video', this.lang.get('video'), 700);
-			this.modal.createCancelButton();
+                this.modal.load('video', this.lang.get('video'), 700);
+                this.modal.createCancelButton();
 
-			var button = this.modal.createActionButton(this.lang.get('insert'));
-			button.on('click', this.video.insert);
+                var button = this.modal.createActionButton(this.lang.get('insert'));
+                button.on('click', this.video.insert);
 
-			this.selection.save();
-			this.modal.show();
+                this.selection.save();
+                this.modal.show();
 
-			$('#redactor-insert-video-area').focus();
+                $('#redactor-insert-video-area').focus();
 
-		},
-		insert: function()
-		{
-			var data = $('#redactor-insert-video-area').val();
-			data = this.clean.stripTags(data);
+            },
+            insert: function()
+            {
+                var data = $('#redactor-insert-video-area').val();
 
-			// parse if it is link on youtube & vimeo
-			var iframeStart = '<iframe style="width: 500px; height: 281px;" src="',
-				iframeEnd = '" frameborder="0" allowfullscreen></iframe>';
+                if (!data.match(/<iframe|<video/gi))
+                {
+                    data = this.clean.stripTags(data);
 
-			if (data.match(this.video.reUrlYoutube))
-			{
-				data = data.replace(this.video.reUrlYoutube, iframeStart + '//www.youtube.com/embed/$1' + iframeEnd);
-			}
-			else if (data.match(this.video.reUrlVimeo))
-			{
-				data = data.replace(this.video.reUrlVimeo, iframeStart + '//player.vimeo.com/video/$2' + iframeEnd);
-			}
+                    // parse if it is link on youtube & vimeo
+                    var iframeStart = '<iframe style="width: 500px; height: 281px;" src="',
+                        iframeEnd = '" frameborder="0" allowfullscreen></iframe>';
 
-			this.selection.restore();
-			this.modal.close();
+                    if (data.match(this.video.reUrlYoutube))
+                    {
+                        data = data.replace(this.video.reUrlYoutube, iframeStart + '//www.youtube.com/embed/$1' + iframeEnd);
+                    }
+                    else if (data.match(this.video.reUrlVimeo))
+                    {
+                        data = data.replace(this.video.reUrlVimeo, iframeStart + '//player.vimeo.com/video/$2' + iframeEnd);
+                    }
+                }
 
-			var current = this.selection.getBlock() || this.selection.getCurrent();
+                this.selection.restore();
+                this.modal.close();
 
-			if (current) $(current).after(data);
-			else
-			{
-				this.insert.html(data);
-			}
+                var current = this.selection.getBlock() || this.selection.getCurrent();
 
-			this.code.sync();
-		}
+                if (current) $(current).after(data);
+                else
+                {
+                    this.insert.html(data);
+                }
 
-	};
-};
+                this.code.sync();
+            }
+
+        };
+    };
+})(jQuery);
 
 RedactorPlugins.imagepaste = function() {
   return {
@@ -790,21 +960,52 @@ RedactorPlugins.imagepaste = function() {
           return true;
 
       this.$editor.on('paste.imagepaste', $.proxy(this.imagepaste.buildEventPaste, this));
+
+      // Capture the selection position every so often as Redactor seems to
+      // drop it when attempting an image paste before `paste` browser event
+      // fires
+      var that = this,
+          plugin = this.imagepaste;
+      setInterval(function() {
+        if (plugin.inpaste)
+          return;
+        that.selection.get();
+        var coords = that.range.getClientRects();
+        if (!coords.length)
+            return;
+        coords = coords[0];
+        var proxy = {
+          clientX: (Math.max(coords.left, 0) || 0) + 10,
+          clientY: (coords.top || 0) + 10,
+        };
+        if (coords.left < 0)
+            return;
+        plugin.offset = proxy; //that.caret.getOffset() || plugin.offset;
+      }, 300);
     },
+    offset: 0,
+    inpaste: false,
     buildEventPaste: function(e)
     {
       var event = e.originalEvent || e,
           fileUpload = false,
           files = [],
           i, file,
-          cd = event.clipboardData;
+          plugin = this.imagepaste,
+          cd = event.clipboardData,
+          self = this, node,
+          bail = function() {
+            plugin.inpaste = false;
+          };
 
-      if (typeof(cd) === 'undefined') return;
+      plugin.inpaste = true;
+      if (typeof(cd) === 'undefined')
+          return bail();
 
       if (cd.items && cd.items.length)
       {
         for (i = 0, k = cd.items.length; i < k; i++) {
-          if (cd.kind == 'file' && cd.type.indexOf('image/') !== -1) {
+          if (cd.items[i].kind == 'file' && cd.items[i].type.indexOf('image/') !== -1) {
             file = cd.items[i].getAsFile();
             if (file !== null)
               files.push(file);
@@ -813,26 +1014,59 @@ RedactorPlugins.imagepaste = function() {
       }
       else if (cd.files && cd.files.length)
       {
-        files = cd.files
+        files = cd.files;
       }
       else if (cd.types.length) {
         for (i = 0, k = cd.types.length; i < k; i++) {
           if (cd.types[i].indexOf('image/') != -1) {
             var data = cd.getData(cd.types[i]);
-            if (data.length)
+            if (data.length) {
                 files.push(new Blob([data], {type: cd.types[i]}));
+                break;
+            }
           }
         }
       }
-      if (files.length) {
-        // clipboard upload
-        this.selection.save();
-        this.buffer.set();
-        this.clean.singleLine = false;
-        for (i = 0, k = files.length; i < k; i++)
-          this.upload.directUpload(files[i], event);
-        return false;
+
+      if (!files.length)
+        return bail();
+
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      if (plugin.offset == 0) {
+        // Assume top left of editor window since no last position is known
+        var offset = self.$editor.offset();
+        plugin.offset = {
+          clientX: offset.left - $(document).scrollLeft() + 20,
+          clientY: offset.top - $(document).scrollTop() + self.$toolbar.height() + 20
+        }
       }
+
+      // Add cool wait cursor
+      var waitCursor = $('<span class="-image-upload-placeholder icon-stack"><i class="icon-circle icon-stack-base"></i><i class="icon-picture icon-light icon-spin"></i></span>');
+      self.insert.nodeToCaretPositionFromPoint(plugin.offset, waitCursor);
+
+      var oldIUC = self.opts.imageUploadCallback;
+      self.opts.imageUploadCallback = function(image, json) {
+        if ($.contains(waitCursor.get(0), image))
+          waitCursor.replaceWith(image);
+        else
+          waitCursor.remove();
+
+        self.opts.imageUploadCallback = oldIUC;
+        // Add a zero-width space so that the caret:getOffset will find
+        // locations after pictures if only <br> tags exist otherwise. In
+        // other words, ensure there is at least one character after the
+        // image for text character counting. Additionally, Redactor will
+        // strip the zero-width space when saving
+        $(document.createTextNode("\u200b")).insertAfter($(image));
+        bail();
+      };
+
+      // Upload clipboard files
+      for (i = 0, k = files.length; i < k; i++)
+        self.upload.directUpload(files[i], plugin.offset);
     }
   };
 };
@@ -844,14 +1078,6 @@ RedactorPlugins.imageannotate = function() {
     init: function() {
       var redactor = this,
           self = this.imageannotate;
-      if (typeof window.fabric === 'undefined' && !loadedFabric) {
-          $.ajax({
-            dataType: 'script',
-            cache: true,
-            url: '../js/fabric.min.js'
-          });
-          loadedFabric = true;
-      }
       $(document).on('click', '.redactor-box img', function() {
         var $image = $(this),
             image_box = $('#redactor-image-box');
@@ -1569,7 +1795,6 @@ RedactorPlugins.imageannotate = function() {
       scale = Math.max(0.7, $img.width() / I.width);
       var scaleWidth = $img.width() / scale,
           scaleHeight = $img.height() / scale;
-      console.log(I.width, scaleWidth, $img.width(), scale);
       fcanvas
         .setDimensions({width: $img.width(), height: $img.height()})
         .setZoom(scale)
@@ -1597,5 +1822,364 @@ RedactorPlugins.imageannotate = function() {
       $img.data('canvas', fcanvas).addClass('hidden');
       return fcanvas;
     }
+  };
+};
+
+RedactorPlugins.contexttypeahead = function() {
+  return {
+    typeahead: false,
+    context: false,
+    variables: false,
+
+    init: function() {
+      if (!this.$element.data('rootContext'))
+        return;
+
+      this.opts.keyupCallback = this.contexttypeahead.watch.bind(this);
+      this.opts.keydownCallback = this.contexttypeahead.watch.bind(this);
+      this.$editor.on('click', this.contexttypeahead.watch.bind(this));
+    },
+
+    watch: function(e) {
+      var current = this.selection.getCurrent(),
+          allText = this.$editor.text(),
+          offset = this.caret.getOffset(),
+          lhs = allText.substring(0, offset),
+          search = new RegExp(/%\{([^}]*)$/),
+          match;
+
+      if (!lhs) {
+        return !e.isDefaultPrevented();
+      }
+
+      if (e.which == 27 || !(match = search.exec(lhs)))
+        // No longer in a element — close typeahead
+        return this.contexttypeahead.destroy();
+
+      if (e.type == 'click')
+        return;
+
+      // Locate the position of the cursor and the number of characters back
+      // to the `%{` symbols
+      var sel         = this.selection.get(),
+          range       = this.sel.getRangeAt(0),
+          content     = current.textContent,
+          clientRects = range.getClientRects(),
+          position    = clientRects[0],
+          backText    = match[1],
+          parent      = this.selection.getParent() || this.$editor,
+          plugin      = this.contexttypeahead;
+
+      // Insert a hidden text input to receive the typed text and add a
+      // typeahead widget
+      if (!this.contexttypeahead.typeahead) {
+        this.contexttypeahead.typeahead = $('<input type="text">')
+          .css({position: 'absolute', visibility: 'hidden'})
+          .width(0).height(position.height - 4)
+          .appendTo(document.body)
+          .typeahead({
+            property: 'variable',
+            minLength: 0,
+            arrow: $('<span class="pull-right"><i class="icon-muted icon-chevron-right"></i></span>')
+                .css('padding', '0 0 0 6px'),
+            highlighter: function(variable, item) {
+              var base = $.fn.typeahead.Constructor.prototype.highlighter
+                    .call(this, variable),
+                  further = new RegExp(variable + '\\.'),
+                  extendable = Object.keys(plugin.variables).some(function(v) {
+                    return v.match(further);
+                  }),
+                  arrow = extendable ? this.options.arrow.clone() : '';
+
+              return $('<div/>').html(base).prepend(arrow).html()
+                + $('<span class="faded">')
+                  .text(' — ' + item.desc)
+                  .wrap('<div>').parent().html();
+            },
+            item: '<li><a href="#" style="display:block"></a></li>',
+            source: this.contexttypeahead.getContext.bind(this),
+            sorter: function(items) {
+              items.sort(
+                function(a,b) {return a.variable > b.variable ? 1 : -1;}
+              );
+              return items;
+            },
+            matcher: function(item) {
+              if (item.toLowerCase().indexOf(this.query.toLowerCase()) !== 0)
+                return false;
+
+              return (this.query.match(/\./g) || []).length == (item.match(/\./g) || []).length;
+            },
+            onselect: this.contexttypeahead.select.bind(this),
+            scroll: true,
+            items: 100
+          });
+      }
+
+      if (position) {
+        var width = plugin.textWidth(
+              backText,
+              this.selection.getParent() || $('<div class="redactor-editor">')
+            ),
+            pleft = $(parent).offset().left,
+            left = position.left - width;
+
+        if (left < pleft)
+            // This is a bug in chrome, but I'm not sure how to adjust it
+            left += pleft;
+
+        plugin.typeahead
+          .css({top: position.top + $(window).scrollTop(), left: left});
+      }
+
+      plugin.typeahead
+        .val(match[1])
+        .trigger(e);
+
+      return !e.isDefaultPrevented();
+    },
+
+    getContext: function(typeahead, query) {
+      var dfd, that=this.contexttypeahead,
+          root = this.$element.data('rootContext');
+      if (!this.contexttypeahead.context) {
+        dfd = $.Deferred();
+        $.ajax('ajax.php/content/context', {
+          data: {root: root},
+          success: function(json) {
+            var items = $.map(json, function(v,k) {
+              return {variable: k, desc: v};
+            });
+            that.variables = json;
+            dfd.resolve(items);
+          }
+        });
+        this.contexttypeahead.context = dfd;
+      }
+      // Only fetch the context once for this redactor box
+      this.contexttypeahead.context.then(function(items) {
+        typeahead.process(items);
+      });
+    },
+
+    textWidth: function(text, clone) {
+      var c = $(clone),
+          o = c.clone().text(text)
+            .css({'position': 'absolute', 'float': 'left', 'white-space': 'nowrap', 'visibility': 'hidden'})
+            .css({'font-family': c.css('font-family'), 'font-weight': c.css('font-weight'),
+              'font-size': c.css('font-size')})
+            .appendTo($('body')),
+          w = o.width();
+
+      o.remove();
+
+      return w;
+    },
+
+    destroy: function() {
+      if (this.contexttypeahead.typeahead) {
+        this.contexttypeahead.typeahead.typeahead('hide');
+        this.contexttypeahead.typeahead.remove();
+        this.contexttypeahead.typeahead = false;
+      }
+    },
+
+    select: function(item, event) {
+      // Collapse multiple textNodes together
+      (this.selection.getBlock() || this.$editor.get(0)).normalize();
+      var current = this.selection.getCurrent(),
+          sel     = this.selection.get(),
+          range   = this.sel.getRangeAt(0),
+          cursorAt = range.endOffset,
+          // TODO: Consume immediately following `}` symbols
+          plugin  = this.contexttypeahead,
+          search  = new RegExp(/%\{([^}]*)(\}?)$/);
+
+      // FIXME: ENTER will end up here, but current will be empty
+
+      if (!current)
+        return;
+
+      // Set cursor at the end of the expanded text
+      var left = current.textContent.substring(0, cursorAt),
+          right = current.textContent.substring(cursorAt),
+          autoExpand = event.target.nodeName == 'I',
+          selected = item.variable + (autoExpand ? '.' : '')
+          newLeft = left.replace(search, '%{' + selected + '}');
+
+      current.textContent = newLeft
+        // Drop the remaining part of a variable block, if any
+        + right.replace(/[^%}]*?[%}]/, '');
+
+      this.range.setStart(current, newLeft.length - 1);
+      this.range.setEnd(current, newLeft.length - 1);
+      this.selection.addRange();
+      if (!autoExpand)
+          return plugin.destroy();
+
+      plugin.typeahead.val(selected);
+      plugin.typeahead.typeahead('lookup');
+      return false;
+    }
+  };
+};
+
+RedactorPlugins.translatable = function() {
+  return {
+    langs: undefined,
+    config: undefined,
+    textareas: {},
+    current: undefined,
+    primary: undefined,
+    button: undefined,
+
+    init: function() {
+      $.ajax({
+        url: 'ajax.php/i18n/langs/all',
+        success: this.translatable.setLangs.bind(this)
+      });
+      getConfig().then(this.translatable.setConfig.bind(this));
+      this.opts.keydownCallback = this.translatable.showCommit.bind(this);
+      this.translatable.translateTag = this.$textarea.data('translateTag');
+    },
+
+    setLangs: function(langs) {
+      this.translatable.langs = langs;
+      this.translatable.buildDropdown();
+    },
+
+    setConfig: function(config) {
+      this.translatable.config = config;
+      this.translatable.buildDropdown();
+    },
+
+    buildDropdown: function() {
+      if (!this.translatable.config || !this.translatable.langs)
+        return;
+
+      var plugin = this.translatable,
+          primary = this.$textarea,
+          primary_lang = plugin.config.primary_language.replace('-','_'),
+          primary_info = plugin.langs[primary_lang],
+          dropdown = {},
+          items = {};
+
+      langs = plugin.langs;
+      plugin.textareas[primary_lang] = primary;
+      plugin.primary = plugin.current = primary_lang;
+
+      dropdown[primary_lang] = {
+        title: '<i class="flag flag-'+primary_info.flag+'"></i> '+primary_info.name,
+        func: function() { plugin.switchTo(primary_lang); }
+      }
+
+      $.each(langs, function(lang, info) {
+        if (lang == primary_lang)
+          return;
+        dropdown[lang] = {
+          title: '<i class="flag flag-'+info.flag+'"></i> '+info.name,
+          func: function() { plugin.switchTo(lang); }
+        };
+        plugin.textareas[lang] = primary.clone(false).attr({
+          lang: lang,
+          dir: info['direction'],
+          'class': '',
+        })
+        .removeAttr('name').removeAttr('data-translate-tag')
+        .text('')
+        .insertAfter(primary);
+      });
+
+      // Add the button to the toolbar
+      plugin.button = this.button.add('translate', __('Translate')),
+      this.button.setAwesome('translate', 'flag flag-' + plugin.config.primary_lang_flag);
+      plugin.button.parent().addClass('pull-right');
+      this.button.addDropdown(plugin.button, dropdown);
+
+      // Flip back to primary language before submitting
+      this.$textarea.closest('form').submit(function() {
+        plugin.switchTo(primary_lang);
+      });
+    },
+
+    switchTo: function(lang) {
+      var that = this;
+
+      if (lang == this.translatable.current)
+        return;
+
+      if (this.translatable.translations === undefined) {
+        this.translatable.fetch('ajax.php/i18n/translate/' + this.translatable.translateTag)
+        .then(function(json) {
+          that.translatable.translations = json;
+          $.each(json, function(l, text) {
+            that.translatable.textareas[l].val(text);
+          });
+          // Now switch to the language
+          that.translatable.switchTo(lang);
+        });
+        return;
+      }
+
+      var html = this.$editor.html();
+      this.$textarea.val(this.clean.onSync(html));
+      this.$textarea = this.translatable.textareas[lang];
+      this.code.set(this.$textarea.val());
+      this.translatable.current = lang;
+
+      this.button.setAwesome('translate', 'flag flag-' + this.translatable.langs[lang].flag);
+      this.$editor.attr({lang: lang, dir: this.translatable.langs[lang].direction});
+    },
+
+    showCommit: function() {
+      var plugin = this.translatable;
+
+      if (this.translatable.current == this.translatable.primary) {
+        if (this.translatable.$commit)
+          this.translatable.$commit
+          .slideUp(function() { $(this).remove(); plugin.$commit = undefined; });
+        return true;
+      }
+
+      if (this.translatable.$commit)
+        return true;
+
+      this.translatable.$commit = $('<div class="language-commit"></div>')
+      .hide()
+      .appendTo(this.$box)
+      .append($('<button type="button" class="white button commit"><i class="fa fa-save icon-save"></i> '+__('Save')+'</button>')
+        .on('click', $.proxy(this.translatable.commit, this))
+      )
+      .slideDown();
+    },
+
+    commit: function() {
+      var changes = {}, self = this,
+          plugin = this.translatable,
+          $commit = plugin.$commit;
+      $commit.find('button').empty().text(' '+__('Saving'))
+          .prop('disabled', true)
+          .prepend($('<i>').addClass('fa icon-spin icon-spinner'));
+      changes[plugin.current] = this.code.get();
+      $.ajax('ajax.php/i18n/translate/' + plugin.translateTag, {
+        type: 'post',
+        data: changes,
+        success: function() {
+          $commit.slideUp(function() { $(this).remove(); plugin.$commit = undefined; });
+        }
+      });
+    },
+
+    urlcache: {},
+    fetch: function( url, data, callback ) {
+      var urlcache = this.translatable.urlcache;
+      if ( !urlcache[ url ] ) {
+        urlcache[ url ] = $.Deferred(function( defer ) {
+          $.ajax( url, { data: data, dataType: 'json' } )
+            .then( defer.resolve, defer.reject );
+        }).promise();
+      }
+      return urlcache[ url ].done( callback );
+    },
   };
 };

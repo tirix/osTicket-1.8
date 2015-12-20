@@ -5,6 +5,7 @@ require_once(INCLUDE_DIR.'class.list.php');
 
 $list=null;
 $criteria=array();
+$redirect = false;
 if ($_REQUEST['id'])
     $criteria['id'] = $_REQUEST['id'];
 elseif ($_REQUEST['type'])
@@ -12,7 +13,8 @@ elseif ($_REQUEST['type'])
 
 if ($criteria) {
     $list = DynamicList::lookup($criteria);
-
+    if ($list)
+        $list = CustomListHandler::forList($list);
     if ($list)
          $form = $list->getForm();
     else
@@ -43,10 +45,11 @@ if($_POST) {
                 // Update properties
                 if (!$errors && ($form = $list->getForm())) {
                     $names = array();
-                    foreach ($form->getDynamicFields() as $field) {
+                    $fields = $form->getDynamicFields();
+                    foreach ($fields as $field) {
                         $id = $field->get('id');
                         if ($_POST["delete-prop-$id"] == 'on' && $field->isDeletable()) {
-                            $field->delete();
+                            $fields->remove($field);
                             // Don't bother updating the field
                             continue;
                         }
@@ -95,8 +98,10 @@ if($_POST) {
             break;
         case 'add':
             if ($list=DynamicList::add($_POST, $errors)) {
-                 $msg = sprintf(__('Successfully added %s'),
-                    __('this custom list'));
+                 $form = $list->getForm(true);
+                 Messages::success(sprintf(__('Successfully added %s'), __('this custom list')));
+                 // Redirect to list page
+                 $redirect = "lists.php?id={$list->id}#items";
             } elseif ($errors) {
                 $errors['err']=sprintf(__('Unable to add %s. Correct error(s) below and try again.'),
                     __('this custom list'));
@@ -154,7 +159,6 @@ if($_POST) {
             if (!$_POST["prop-label-new-$i"])
                 continue;
             $field = DynamicFormField::create(array(
-                'form_id' => $form->get('id'),
                 'sort' => $_POST["prop-sort-new-$i"] ?: ++$max_sort,
                 'label' => $_POST["prop-label-new-$i"],
                 'type' => $_POST["type-new-$i"],
@@ -163,17 +167,18 @@ if($_POST) {
                     | DynamicFormField::FLAG_AGENT_VIEW
                     | DynamicFormField::FLAG_AGENT_EDIT,
             ));
-            $field->setForm($form);
-            if ($field->isValid())
+            if ($field->isValid()) {
+                $form->fields->add($field);
                 $field->save();
+            }
             else
                 $errors["new-$i"] = $field->errors();
         }
-        // XXX: Move to an instrumented list that can handle this better
-        if (!$errors)
-            $form->_dfields = $form->_fields = null;
     }
 }
+
+if ($redirect)
+    Http::redirect($redirect);
 
 $page='dynamic-lists.inc.php';
 if($list && !strcasecmp(@$_REQUEST['a'],'items') && isset($_SERVER['HTTP_X_PJAX'])) {

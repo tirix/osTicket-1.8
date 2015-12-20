@@ -57,7 +57,7 @@ class Bootstrap {
                 && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == 'https');
     }
 
-    function defineTables($prefix) {
+    static function defineTables($prefix) {
         #Tables being used sytem wide
         define('SYSLOG_TABLE',$prefix.'syslog');
         define('SESSION_TABLE',$prefix.'session');
@@ -80,8 +80,7 @@ class Bootstrap {
         define('TEAM_TABLE',$prefix.'team');
         define('TEAM_MEMBER_TABLE',$prefix.'team_member');
         define('DEPT_TABLE',$prefix.'department');
-        define('GROUP_TABLE', $prefix.'group');
-        define('GROUP_DEPT_TABLE', $prefix.'group_dept_access');
+        define('STAFF_DEPT_TABLE', $prefix.'staff_dept_access');
         define('ROLE_TABLE', $prefix.'role');
 
         define('FAQ_TABLE',$prefix.'faq');
@@ -94,14 +93,17 @@ class Bootstrap {
         define('THREAD_ENTRY_TABLE', $prefix.'thread_entry');
         define('THREAD_ENTRY_EMAIL_TABLE', $prefix.'thread_entry_email');
 
-        define('TICKET_TABLE',$prefix.'ticket');
         define('LOCK_TABLE',$prefix.'lock');
-        define('TICKET_EVENT_TABLE',$prefix.'ticket_event');
+
+        define('TICKET_TABLE',$prefix.'ticket');
+        define('TICKET_CDATA_TABLE', $prefix.'ticket__cdata');
+        define('THREAD_EVENT_TABLE',$prefix.'thread_event');
         define('THREAD_COLLABORATOR_TABLE', $prefix.'thread_collaborator');
         define('TICKET_STATUS_TABLE', $prefix.'ticket_status');
         define('TICKET_PRIORITY_TABLE',$prefix.'ticket_priority');
 
-        define('TASK_TABLE',$prefix.'task');
+        define('TASK_TABLE', $prefix.'task');
+        define('TASK_CDATA_TABLE', $prefix.'task__cdata');
 
         define('PRIORITY_TABLE',TICKET_PRIORITY_TABLE);
 
@@ -129,6 +131,8 @@ class Bootstrap {
 
         define('PLUGIN_TABLE', $prefix.'plugin');
         define('SEQUENCE_TABLE', $prefix.'sequence');
+        define('TRANSLATION_TABLE', $prefix.'translation');
+        define('QUEUE_TABLE', $prefix.'queue');
 
         define('API_KEY_TABLE',$prefix.'api_key');
         define('TIMEZONE_TABLE',$prefix.'timezone');
@@ -189,16 +193,13 @@ class Bootstrap {
         #include required files
         require_once INCLUDE_DIR.'class.util.php';
         require_once INCLUDE_DIR.'class.translation.php';
-        require(INCLUDE_DIR.'class.signal.php');
+        require_once(INCLUDE_DIR.'class.signal.php');
         require(INCLUDE_DIR.'class.model.php');
         require(INCLUDE_DIR.'class.user.php');
         require(INCLUDE_DIR.'class.auth.php');
         require(INCLUDE_DIR.'class.pagenate.php'); //Pagenate helper!
         require(INCLUDE_DIR.'class.log.php');
         require(INCLUDE_DIR.'class.crypto.php');
-        require(INCLUDE_DIR.'class.timezone.php');
-        require_once(INCLUDE_DIR.'class.signal.php');
-        require(INCLUDE_DIR.'class.nav.php');
         require(INCLUDE_DIR.'class.page.php');
         require_once(INCLUDE_DIR.'class.format.php'); //format helpers
         require_once(INCLUDE_DIR.'class.validator.php'); //Class to help with basic form input validation...please help improve it.
@@ -209,6 +210,9 @@ class Bootstrap {
     }
 
     function i18n_prep() {
+        ini_set('default_charset', 'utf-8');
+        ini_set('output_encoding', 'utf-8');
+
         // MPDF requires mbstring functions
         if (!extension_loaded('mbstring')) {
             if (function_exists('iconv')) {
@@ -305,12 +309,14 @@ define('SETUP_DIR',ROOT_DIR.'setup/');
 
 define('UPGRADE_DIR', INCLUDE_DIR.'upgrader/');
 define('I18N_DIR', INCLUDE_DIR.'i18n/');
+define('CLI_DIR', INCLUDE_DIR.'cli/');
 
 /*############## Do NOT monkey with anything else beyond this point UNLESS you really know what you are doing ##############*/
 
 #Current version && schema signature (Changes from version to version)
 define('THIS_VERSION','1.8-git'); //Shown on admin panel
 define('GIT_VERSION','$git');
+define('MAJOR_VERSION', '1.10');
 //Path separator
 if(!defined('PATH_SEPARATOR')){
     if(strpos($_ENV['OS'],'Win')!==false || !strcasecmp(substr(PHP_OS, 0, 3),'WIN'))

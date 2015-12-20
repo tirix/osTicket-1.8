@@ -28,7 +28,7 @@ if ($_REQUEST['order'] && isset($orderWays[strtoupper($_REQUEST['order'])]))
 $x=$sort.'_sort';
 $$x=' class="'.strtolower($order).'" ';
 $page = ($_GET['p'] && is_numeric($_GET['p'])) ? $_GET['p'] : 1;
-$count = EmailModel::objects()->count();
+$count = Email::objects()->count();
 $pageNav = new Pagenate($count, $page, PAGE_LIMIT);
 $qs += array('sort' => $_REQUEST['sort'], 'order' => $_REQUEST['order']);
 $pageNav->setURL('emails.php', $qs);
@@ -39,26 +39,44 @@ $def_dept_id = $cfg->getDefaultDeptId();
 $def_dept_name = $cfg->getDefaultDept()->getName();
 $def_priority = $cfg->getDefaultPriority()->getDesc();
 ?>
-<div class="pull-left" style="width:700px;padding-top:5px;">
- <h2><?php echo __('Email Addresses');?></h2>
- </div>
-<div class="pull-right flush-right" style="padding-top:5px;padding-right:5px;">
-    <b><a href="emails.php?a=add" class="Icon newEmail"><?php echo __('Add New Email');?></a></b></div>
-<div class="clear"></div>
 <form action="emails.php" method="POST" name="emails">
+    <div class="sticky bar opaque">
+        <div class="content">
+            <div class="pull-left flush-left">
+                <h2><?php echo __('Email Addresses');?></h2>
+            </div>
+            <div class="pull-right flush-right">
+                <a href="emails.php?a=add" class="green button action-button"><i class="icon-plus-sign"></i> <?php echo __('Add New Email');?></a>
+                <span class="action-button" data-dropdown="#action-dropdown-more">
+                            <i class="icon-caret-down pull-right"></i>
+                            <span ><i class="icon-cog"></i> <?php echo __('More');?></span>
+                </span>
+                <div id="action-dropdown-more" class="action-dropdown anchor-right">
+                    <ul id="actions">
+                        <li class="danger">
+                            <a class="confirm" data-name="delete" href="emails.php?a=delete">
+                                <i class="icon-trash icon-fixed-width"></i>
+                                <?php echo __( 'Delete'); ?>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="clear"></div>
  <?php csrf_token(); ?>
  <input type="hidden" name="do" value="mass_process" >
  <input type="hidden" id="action" name="a" value="" >
  <table class="list" border="0" cellspacing="1" cellpadding="0" width="940">
-    <caption><?php echo $showing; ?></caption>
     <thead>
         <tr>
-            <th width="7">&nbsp;</th>
-            <th width="400"><a <?php echo $email_sort; ?> href="emails.php?<?php echo $qstr; ?>&sort=email"><?php echo __('Email');?></a></th>
-            <th width="120"><a  <?php echo $priority_sort; ?> href="emails.php?<?php echo $qstr; ?>&sort=priority"><?php echo __('Priority');?></a></th>
-            <th width="250"><a  <?php echo $dept_sort; ?> href="emails.php?<?php echo $qstr; ?>&sort=dept"><?php echo __('Department');?></a></th>
-            <th width="110" nowrap><a  <?php echo $created_sort; ?>href="emails.php?<?php echo $qstr; ?>&sort=created"><?php echo __('Created');?></a></th>
-            <th width="150" nowrap><a  <?php echo $updated_sort; ?>href="emails.php?<?php echo $qstr; ?>&sort=updated"><?php echo __('Last Updated');?></a></th>
+            <th width="4%">&nbsp;</th>
+            <th width="38%"><a <?php echo $email_sort; ?> href="emails.php?<?php echo $qstr; ?>&sort=email"><?php echo __('Email');?></a></th>
+            <th width="8%"><a  <?php echo $priority_sort; ?> href="emails.php?<?php echo $qstr; ?>&sort=priority"><?php echo __('Priority');?></a></th>
+            <th width="15%"><a  <?php echo $dept_sort; ?> href="emails.php?<?php echo $qstr; ?>&sort=dept"><?php echo __('Department');?></a></th>
+            <th width="15%" nowrap><a  <?php echo $created_sort; ?>href="emails.php?<?php echo $qstr; ?>&sort=created"><?php echo __('Created');?></a></th>
+            <th width="20%" nowrap><a  <?php echo $updated_sort; ?>href="emails.php?<?php echo $qstr; ?>&sort=updated"><?php echo __('Last Updated');?></a></th>
         </tr>
     </thead>
     <tbody>
@@ -66,7 +84,7 @@ $def_priority = $cfg->getDefaultPriority()->getDesc();
         $ids = ($errors && is_array($_POST['ids'])) ? $_POST['ids'] : null;
         if ($count):
             $defaultId=$cfg->getDefaultEmailId();
-            $emails = EmailModel::objects()
+            $emails = Email::objects()
                 ->order_by(sprintf('%s%s',
                             strcasecmp($order, 'DESC') ? '' : '-',
                             $order_column))
@@ -76,19 +94,21 @@ $def_priority = $cfg->getDefaultPriority()->getDesc();
             foreach ($emails as $email) {
                 $id = $email->getId();
                 $sel=false;
-                if ($ids && in_array($email, $ids))
+                if ($ids && in_array($id, $ids))
                     $sel=true;
                 $default=($id==$defaultId);
                 ?>
             <tr id="<?php echo $id; ?>">
-                <td width=7px>
+                <td align="center">
                   <input type="checkbox" class="ckb" name="ids[]"
                     value="<?php echo $id; ?>"
-                    <?php echo $sel ? 'checked="checked"' : ''; ?>
-                    <?php echo $default?'disabled="disabled"':''; ?>>
+                    <?php echo $sel ? 'checked="checked" ' : ''; ?>
+                    <?php echo $default?'disabled="disabled" ':''; ?>>
                 </td>
                 <td><span class="ltr"><a href="emails.php?id=<?php echo $id; ?>"><?php
-                    echo Format::htmlchars((string) $email); ?></a></span></td>
+                    echo Format::htmlchars((string) $email); ?></a></span>
+                <?php echo ($default) ?' <small>'.__('(Default)').'</small>' : ''; ?>
+                </td>
                 <td><?php echo $email->priority ?: $def_priority; ?></td>
                 <td><a href="departments.php?id=<?php $email->dept_id ?: $def_dept_id; ?>"><?php
                     echo $email->dept ?: $def_dept_name; ?></a></td>
@@ -117,9 +137,7 @@ $def_priority = $cfg->getDefaultPriority()->getDesc();
 if ($count):
     echo '<div>&nbsp;'.__('Page').':'.$pageNav->getPageLinks().'&nbsp;</div>';
 ?>
-<p class="centered" id="actions">
-    <input class="button" type="submit" name="delete" value="<?php echo __('Delete Email(s)');?>" >
-</p>
+
 <?php
 endif;
 ?>

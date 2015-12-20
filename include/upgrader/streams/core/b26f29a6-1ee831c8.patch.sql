@@ -1,6 +1,6 @@
 /**
  * @signature 1ee831c854fe9f35115a3e672916bb91
- * @version v1.9.6
+ * @version v1.10.0
  * @title Make editable content translatable and add queues
  *
  * This patch adds support for translatable administratively editable
@@ -13,10 +13,6 @@
 
 ALTER TABLE `%TABLE_PREFIX%attachment`
     ADD `lang` varchar(16) AFTER `inline`;
-
-ALTER TABLE `%TABLE_PREFIX%faq`
-    ADD `views` int(10) unsigned NOT NULL default '0' AFTER `notes`,
-    ADD `score` int(10) NOT NULL default '0' AFTER `views`;
 
 ALTER TABLE `%TABLE_PREFIX%staff`
     ADD `lang` varchar(16) DEFAULT NULL AFTER `signature`,
@@ -146,6 +142,32 @@ UPDATE `%TABLE_PREFIX%user_account` A1
         AND A3.`south` = 0)
     SET A1.`timezone` = A3.`olson_name`;
 
+-- Update system default timezone
+SET @default_timezone_id = (
+    SELECT `value` FROM `%TABLE_PREFIX%config` A1
+    WHERE A1.`key` = 'default_timezone_id'
+      AND A1.`namespace` = 'core'
+);
+SET @enable_daylight_saving = (
+    SELECT `value` FROM `%TABLE_PREFIX%config` A1
+    WHERE A1.`key` = 'enable_daylight_saving'
+      AND A1.`namespace` = 'core'
+);
+
+UPDATE `%TABLE_PREFIX%config` A1
+    JOIN `%TABLE_PREFIX%timezone` A2 ON (@default_timezone_id = A2.`id`)
+    JOIN `%TABLE_PREFIX%_timezones` A3 ON (A2.`offset` * 60 = A3.`offset`
+        AND @enable_daylight_saving = A3.`dst`
+        AND A3.`south` = 0)
+    SET A1.`value` = A3.`olson_name`
+    WHERE A1.`key` = 'default_timezone_id'
+      AND A1.`namespace` = 'core';
+
+UPDATE `%TABLE_PREFIX%config` A1
+    SET A1.`key` = 'default_timezone'
+    WHERE A1.`key` = 'default_timezone_id'
+      AND A1.`namespace` = 'core';
+
 DROP TABLE %TABLE_PREFIX%_timezones;
 
 ALTER TABLE `%TABLE_PREFIX%ticket`
@@ -184,6 +206,11 @@ UPDATE `%TABLE_PREFIX%form_field` A1 JOIN `%TABLE_PREFIX%form` A2 ON(A2.id=A1.fo
 UPDATE `%TABLE_PREFIX%form_field` A1 JOIN `%TABLE_PREFIX%form` A2 ON(A2.id=A1.form_id)
     SET A1.`flags`=3
     WHERE A2.`type`='O' AND A1.`name` IN('name');
+
+-- Thread entry field is stored externally
+UPDATE `%TABLE_PREFIX%form_field` A1 JOIN `%TABLE_PREFIX%form` A2 ON(A2.id=A1.form_id)
+    SET A1.`flags`=3
+    WHERE A2.`type`='T' AND A1.`name` IN ('message');
 
 -- Coalesce to zero here in case the config option has never been saved
 set @client_edit = coalesce(

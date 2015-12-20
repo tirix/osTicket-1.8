@@ -9,7 +9,6 @@ if(!defined('OSTADMININC') || !$thisstaff || !$thisstaff->isAdmin() || !$config)
     <thead>
         <tr>
             <th colspan="2">
-                <h4><?php echo __('Email Settings');?></h4>
                 <em><?php echo __('Note that some of the global settings can be overwridden at department/email level.');?></em>
             </th>
         </tr>
@@ -80,6 +79,15 @@ if(!defined('OSTADMININC') || !$thisstaff || !$thisstaff->isAdmin() || !$config)
                 <input type="text" size=40 name="admin_email" value="<?php echo $config['admin_email']; ?>">
                     &nbsp;<font class="error">*&nbsp;<?php echo $errors['admin_email']; ?></font>
                 <i class="help-tip icon-question-sign" href="#admins_email_address"></i>
+            </td>
+        </tr>
+        <tr>
+            <td width="180" class="required"><?php echo __("Verify Email Addresses");?>:</td>
+            <td>
+                <input type="checkbox" name="verify_email_addrs" <?php
+                    if ($config['verify_email_addrs']) echo 'checked="checked"'; ?>>
+                <?php echo __('Verify email address domain'); ?>
+                <i class="help-tip icon-question-sign" href="#verify_email_addrs"></i>
             </td>
         </tr>
         <tr><th colspan=2><em><strong><?php echo __('Incoming Emails'); ?>:</strong>&nbsp;
@@ -163,7 +171,7 @@ if(!defined('OSTADMININC') || !$thisstaff || !$thisstaff->isAdmin() || !$config)
         </tr>
     </tbody>
 </table>
-<p style="padding-left:250px;">
+<p style="text-align:center;">
     <input class="button" type="submit" name="submit" value="<?php echo __('Save Changes');?>">
     <input class="button" type="reset" name="reset" value="<?php echo __('Reset Changes');?>">
 </p>

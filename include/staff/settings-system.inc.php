@@ -3,7 +3,7 @@ if(!defined('OSTADMININC') || !$thisstaff || !$thisstaff->isAdmin() || !$config)
 
 $gmtime = Misc::gmtime();
 ?>
-<h2><?php echo __('System Settings and Preferences');?> - <span class="ltr">osTicket (<?php echo $cfg->getVersion(); ?>)</span></h2>
+<h2><?php echo __('System Settings and Preferences');?> <small>— <span class="ltr">osTicket (<?php echo $cfg->getVersion(); ?>)</span></small></h2>
 <form action="settings.php?t=system" method="post" id="save">
 <?php csrf_token(); ?>
 <input type="hidden" name="t" value="system" >
@@ -11,7 +11,6 @@ $gmtime = Misc::gmtime();
     <thead>
         <tr>
             <th colspan="2">
-                <h4><?php echo __('System Settings and Preferences'); ?></h4>
                 <em><b><?php echo __('General Settings'); ?></b></em>
             </th>
         </tr>
@@ -47,18 +46,36 @@ $gmtime = Misc::gmtime();
         <tr>
             <td width="220" class="required"><?php echo __('Default Department');?>:</td>
             <td>
-                <select name="default_dept_id">
+                <select name="default_dept_id" data-quick-add="department">
                     <option value="">&mdash; <?php echo __('Select Default Department');?> &mdash;</option>
                     <?php
                     if (($depts=Dept::getPublicDepartments())) {
                         foreach ($depts as $id => $name) {
                             $selected = ($config['default_dept_id']==$id)?'selected="selected"':''; ?>
-                            <option value="<?php echo $id; ?>"<?php echo $selected; ?>><?php echo $name; ?> <?php echo __('Dept');?></option>
+                            <option value="<?php echo $id; ?>"<?php echo $selected; ?>><?php echo $name; ?></option>
                         <?php
                         }
                     } ?>
+                    <option value="0" data-quick-add>&mdash; <?php echo __('Add New');?> &mdash;</option>
                 </select>&nbsp;<font class="error">*&nbsp;<?php echo $errors['default_dept_id']; ?></font>
                 <i class="help-tip icon-question-sign" href="#default_department"></i>
+            </td>
+        </tr>
+        <tr>
+            <td><?php echo __('Collision Avoidance Duration'); ?>:</td>
+            <td>
+                <input type="text" name="autolock_minutes" size=4 value="<?php echo $config['autolock_minutes']; ?>">
+                <font class="error"><?php echo $errors['autolock_minutes']; ?></font>&nbsp;<?php echo __('minutes'); ?>
+                &nbsp;<i class="help-tip icon-question-sign" href="#collision_avoidance"></i>
+            </td>
+        </tr>
+        <tr>
+            <td><?php echo __('Enable Rich Text'); ?>:</td>
+            <td>
+                <input type="checkbox" name="enable_richtext" <?php
+                echo $config['enable_richtext']?'checked="checked"':''; ?>>
+                <?php echo __('Enable html in thread entries and email correspondence.'); ?>
+                <i class="help-tip icon-question-sign" href="#enable_richtext"></i>
             </td>
         </tr>
 
@@ -98,25 +115,12 @@ $gmtime = Misc::gmtime();
                     for ($i = 1; $i <=12; $i++) {
                         ?>
                         <option <?php echo $config['log_graceperiod']==$i?'selected="selected"':''; ?> value="<?php echo $i; ?>">
-                            <?php echo __('After');?>&nbsp;<?php echo $i; ?>&nbsp;<?php echo ($i>1)?__('Months'):__('Month'); ?></option>
+                            <?php echo sprintf(_N('After %d month', 'After %d months', $i), $i);?>
+                        </option>
                         <?php
                     } ?>
                 </select>
                 <i class="help-tip icon-question-sign" href="#purge_logs"></i>
-            </td>
-        </tr>
-        <tr>
-            <td width="180"><?php echo __('Default Name Formatting'); ?>:</td>
-            <td>
-                <select name="name_format">
-                <?php foreach (PersonsName::allFormats() as $n=>$f) {
-                    list($desc, $func) = $f;
-                    $selected = ($config['name_format'] == $n) ? 'selected="selected"' : ''; ?>
-                                    <option value="<?php echo $n; ?>" <?php echo $selected;
-                                        ?>><?php echo __($desc); ?></option>
-                <?php } ?>
-                </select>
-                <i class="help-tip icon-question-sign" href="#default_name_formatting"></i>
             </td>
         </tr>
         <tr>
@@ -126,6 +130,7 @@ $gmtime = Misc::gmtime();
                 </em>
             </th>
         </tr>
+<?php if (extension_loaded('intl')) { ?>
         <tr><td width="220" class="required"><?php echo __('Default Locale');?>:</td>
             <td>
                 <select name="default_locale">
@@ -142,31 +147,15 @@ $gmtime = Misc::gmtime();
                 </select>
             </td>
         </tr>
+<?php } ?>
         <tr><td width="220" class="required"><?php echo __('Default Time Zone');?>:</td>
             <td>
-                <select name="default_timezone" id="timezone-dropdown">
                 <?php
-                foreach (DateTimeZone::listIdentifiers() as $zone) { ?>
-                    <option value="<?php echo $zone; ?>" <?php
-                    if ($config['default_timezone'] == $zone)
-                        echo 'selected="selected"';
-                    ?>><?php echo str_replace('/',' / ',$zone); ?></option>
-
-                <?php
-                } ?>
-                </select>
-                <button class="action-button" onclick="javascript:
-    $('head').append($('<script>').attr('src', '<?php
-        echo ROOT_PATH; ?>js/jstz.min.js'));
-    var recheck = setInterval(function() {
-        if (window.jstz !== undefined) {
-            clearInterval(recheck);
-            var zone = jstz.determine();
-            $('#timezone-dropdown').val(zone.name()).trigger('chosen:updated');
-
-        }
-    }, 200);
-    return false;"><i class="icon-map-marker"></i> <?php echo __('Auto Detect'); ?></button>
+                $TZ_TIMEZONE = $config['default_timezone'];
+                $TZ_NAME = 'default_timezone';
+                $TZ_ALLOW_DEFAULT = false;
+                include STAFFINC_DIR.'templates/timezone.tmpl.php'; ?>
+                <div class="error"><?php echo $errors['default_timezone']; ?></div>
             </td>
         </tr>
         <tr><td width="220" class="required"><?php echo __('Date and Time Format');?>:</td>
@@ -194,26 +183,39 @@ $gmtime = Misc::gmtime();
         <tr>
             <td width="220" class="indented required"><?php echo __('Time Format');?>:</td>
             <td>
-                <input type="text" name="time_format" value="<?php echo $config['time_format']; ?>">
+                <input type="text" name="time_format" value="<?php echo $config['time_format']; ?>" class="date-format-preview">
                     &nbsp;<font class="error">*&nbsp;<?php echo $errors['time_format']; ?></font>
-                    <em><?php echo Format::time(null, false); ?></em></td>
+                    <em><?php echo Format::time(null, false); ?></em>
+                <span class="faded date-format-preview" data-for="time_format">
+                    <?php echo Format::time('now'); ?>
+                </span>
+            </td>
         </tr>
         <tr><td width="220" class="indented required"><?php echo __('Date Format');?>:</td>
-            <td><input type="text" name="date_format" value="<?php echo $config['date_format']; ?>">
+            <td><input type="text" name="date_format" value="<?php echo $config['date_format']; ?>" class="date-format-preview">
                         &nbsp;<font class="error">*&nbsp;<?php echo $errors['date_format']; ?></font>
                         <em><?php echo Format::date(null, false); ?></em>
+                <span class="faded date-format-preview" data-for="date_format">
+                    <?php echo Format::date('now'); ?>
+                </span>
             </td>
         </tr>
         <tr><td width="220" class="indented required"><?php echo __('Date and Time Format');?>:</td>
-            <td><input type="text" name="datetime_format" value="<?php echo $config['datetime_format']; ?>">
+            <td><input type="text" name="datetime_format" value="<?php echo $config['datetime_format']; ?>" class="date-format-preview">
                         &nbsp;<font class="error">*&nbsp;<?php echo $errors['datetime_format']; ?></font>
                         <em><?php echo Format::datetime(null, false); ?></em>
+                <span class="faded date-format-preview" data-for="datetime_format">
+                    <?php echo Format::datetime('now'); ?>
+                </span>
             </td>
         </tr>
         <tr><td width="220" class="indented required"><?php echo __('Day, Date and Time Format');?>:</td>
-            <td><input type="text" name="daydatetime_format" value="<?php echo $config['daydatetime_format']; ?>">
+            <td><input type="text" name="daydatetime_format" value="<?php echo $config['daydatetime_format']; ?>" class="date-format-preview">
                         &nbsp;<font class="error">*&nbsp;<?php echo $errors['daydatetime_format']; ?></font>
                         <em><?php echo Format::daydatetime(null, false); ?></em>
+                <span class="faded date-format-preview" data-for="daydatetime_format">
+                    <?php echo Format::daydatetime('now'); ?>
+                </span>
             </td>
         </tr>
     </tbody>
@@ -282,21 +284,96 @@ $gmtime = Misc::gmtime();
             <span class="error">&nbsp;<?php echo $errors['add_secondary_language']; ?></span>
             <i class="help-tip icon-question-sign" href="#secondary_language"></i>
         </td></tr>
+        <tr>
+            <th colspan="2">
+                <em><b><?php echo __('Attachments Storage and Settings');?></b>:<i
+                class="help-tip icon-question-sign" href="#attachments"></i></em>
+            </th>
+        </tr>
+        <tr>
+            <td width="180"><?php echo __('Store Attachments'); ?>:</td>
+            <td><select name="default_storage_bk"><?php
+                if (($bks = FileStorageBackend::allRegistered())) {
+                    foreach ($bks as $char=>$class) {
+                        $selected = $config['default_storage_bk'] == $char
+                            ? 'selected="selected"' : '';
+                        ?><option <?php echo $selected; ?> value="<?php echo $char; ?>"
+                        ><?php echo $class::$desc; ?></option><?php
+                    }
+                } else {
+                 echo sprintf('<option value="">%s</option>',
+                         __('Select Storage Backend'));
+                }?>
+                </select>
+                &nbsp;<font class="error">*&nbsp;<?php echo
+                $errors['default_storage_bk']; ?></font>
+                <i class="help-tip icon-question-sign"
+                href="#default_storage_bk"></i>
+            </td>
+        </tr>
+        <tr>
+            <td width="180"><?php echo __(
+                // Maximum size for agent-uploaded files (via SCP)
+                'Agent Maximum File Size');?>:</td>
+            <td>
+                <select name="max_file_size">
+                    <option value="262144">&mdash; <?php echo __('Small'); ?> &mdash;</option>
+                    <?php $next = 512 << 10;
+                    $max = strtoupper(ini_get('upload_max_filesize'));
+                    $limit = (int) $max;
+                    if (!$limit) $limit = 2 << 20; # 2M default value
+                    elseif (strpos($max, 'K')) $limit <<= 10;
+                    elseif (strpos($max, 'M')) $limit <<= 20;
+                    elseif (strpos($max, 'G')) $limit <<= 30;
+                    while ($next <= $limit) {
+                        // Select the closest, larger value (in case the
+                        // current value is between two)
+                        $diff = $next - $config['max_file_size'];
+                        $selected = ($diff >= 0 && $diff < $next / 2)
+                            ? 'selected="selected"' : ''; ?>
+                        <option value="<?php echo $next; ?>" <?php echo $selected;
+                             ?>><?php echo Format::file_size($next);
+                             ?></option><?php
+                        $next *= 2;
+                    }
+                    // Add extra option if top-limit in php.ini doesn't fall
+                    // at a power of two
+                    if ($next < $limit * 2) {
+                        $selected = ($limit == $config['max_file_size'])
+                            ? 'selected="selected"' : ''; ?>
+                        <option value="<?php echo $limit; ?>" <?php echo $selected;
+                             ?>><?php echo Format::file_size($limit);
+                             ?></option><?php
+                    }
+                    ?>
+                </select>
+                <i class="help-tip icon-question-sign" href="#max_file_size"></i>
+                <div class="error"><?php echo $errors['max_file_size']; ?></div>
+            </td>
+        </tr>
     </tbody>
 </table>
-<p style="padding-left:250px;">
+<p style="text-align:center;">
     <input class="button" type="submit" name="submit" value="<?php echo __('Save Changes');?>">
     <input class="button" type="reset" name="reset" value="<?php echo __('Reset Changes');?>">
 </p>
 </form>
 <script type="text/javascript">
-(function() {
-    $('#timezone-dropdown').chosen({
-        allow_single_deselect: true,
-        width: '350px'
+$(function() {
+    $('#secondary_langs').sortable({
+        cursor: 'move'
     });
-})();
-$('#secondary_langs').sortable({
-    cursor: 'move'
+    var prev = [];
+    $('input.date-format-preview').keyup(function() {
+        var name = $(this).attr('name'),
+            div = $('span.date-format-preview[data-for='+name+']'),
+            current = $(this).val();
+        if (prev[name] && prev[name] == current)
+            return;
+        prev[name] = current;
+        div.text('...');
+        $.get('ajax.php/config/date-format', {format:$(this).val()})
+            .done(function(html) { div.html(html); });
+    });
 });
 </script>

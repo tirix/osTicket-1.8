@@ -37,10 +37,12 @@ $dispatcher = patterns('',
     url('^/kb/', patterns('ajax.kbase.php:KbaseAjaxAPI',
         # Send ticket-id as a query arg => canned-response/33?ticket=83
         url_get('^canned-response/(?P<id>\d+).(?P<format>json|txt)', 'cannedResp'),
-        url_get('^faq/(?P<id>\d+)', 'faq')
+        url('^faq/(?P<id>\d+)/access', 'manageFaqAccess'),
+        url_get('^faq/(?P<id>\d+)$', 'faq')
     )),
     url('^/content/', patterns('ajax.content.php:ContentAjaxAPI',
         url_get('^log/(?P<id>\d+)', 'log'),
+        url_get('^context$', 'context'),
         url_get('^ticket_variables', 'ticket_variables'),
         url_get('^signature/(?P<type>\w+)(?:/(?P<id>\d+))?$', 'getSignature'),
         url_get('^(?P<id>\d+)/(?:(?P<lang>\w+)/)?manage$', 'manageContent'),
@@ -49,7 +51,8 @@ $dispatcher = patterns('',
     )),
     url('^/config/', patterns('ajax.config.php:ConfigAjaxAPI',
         url_get('^scp', 'scp'),
-        url_get('^links', 'templateLinks')
+        url_get('^links', 'templateLinks'),
+        url_get('^date-format', 'dateFormat')
     )),
     url('^/form/', patterns('ajax.forms.php:DynamicFormsAjaxAPI',
         url_get('^help-topic/(?P<id>\d+)$', 'getFormsForHelpTopic'),
@@ -65,6 +68,7 @@ $dispatcher = patterns('',
     )),
     url('^/list/', patterns('ajax.forms.php:DynamicFormsAjaxAPI',
         url_get('^(?P<list>\w+)/items$', 'getListItems'),
+        url_get('^(?P<list>\w+)/items/search$', 'searchListItems'),
         url_get('^(?P<list>\w+)/item/(?P<id>\d+)/update$', 'getListItem'),
         url_post('^(?P<list>\w+)/item/(?P<id>\d+)/update$', 'saveListItem'),
         url('^(?P<list>\w+)/item/add$', 'addListItem'),
@@ -118,7 +122,7 @@ $dispatcher = patterns('',
         url_post('^/(?P<id>\d+)/profile$', 'updateOrg', array(true)),
         url_get('^/(?P<id>\d+)/edit$', 'editOrg'),
         url_get('^/lookup/form$', 'lookup'),
-        url_post('^/lookup/form$', 'addOrg'),
+        url_post('^/lookup$', 'lookup'),
         url_get('^/add$', 'addOrg'),
         url_post('^/add$', 'addOrg'),
         url_get('^/select$', 'selectOrg'),
@@ -133,21 +137,17 @@ $dispatcher = patterns('',
         url_get('^/(?P<id>\d+)/forms/manage$', 'manageForms'),
         url_post('^/(?P<id>\d+)/forms/manage$', 'updateForms')
     )),
+    url('^/lock/', patterns('ajax.tickets.php:TicketsAjaxAPI',
+        url_post('^ticket/(?P<tid>\d+)$', 'acquireLock'),
+        url_post('^(?P<id>\d+)/ticket/(?P<tid>\d+)/renew', 'renewLock'),
+        url_post('^(?P<id>\d+)/release', 'releaseLock')
+    )),
     url('^/tickets/', patterns('ajax.tickets.php:TicketsAjaxAPI',
         url_get('^(?P<tid>\d+)/change-user$', 'changeUserForm'),
         url_post('^(?P<tid>\d+)/change-user$', 'changeUser'),
         url_get('^(?P<tid>\d+)/user$', 'viewUser'),
         url_post('^(?P<tid>\d+)/user$', 'updateUser'),
         url_get('^(?P<tid>\d+)/preview', 'previewTicket'),
-        url_post('^(?P<tid>\d+)/lock$', 'acquireLock'),
-        url_post('^(?P<tid>\d+)/lock/(?P<id>\d+)/renew', 'renewLock'),
-        url_post('^(?P<tid>\d+)/lock/(?P<id>\d+)/release', 'releaseLock'),
-        url_get('^(?P<tid>\d+)/collaborators/preview$', 'previewCollaborators'),
-        url_get('^(?P<tid>\d+)/collaborators$', 'showCollaborators'),
-        url_post('^(?P<tid>\d+)/collaborators$', 'updateCollaborators'),
-        url_get('^(?P<tid>\d+)/add-collaborator/(?P<uid>\d+)$', 'addCollaborator'),
-        url_get('^(?P<tid>\d+)/add-collaborator/auth:(?P<bk>\w+):(?P<id>.+)$', 'addRemoteCollaborator'),
-        url('^(?P<tid>\d+)/add-collaborator$', 'addCollaborator'),
         url_get('^(?P<tid>\d+)/forms/manage$', 'manageForms'),
         url_post('^(?P<tid>\d+)/forms/manage$', 'updateForms'),
         url_get('^(?P<tid>\d+)/canned-resp/(?P<cid>\w+).(?P<format>json|txt)', 'cannedResponse'),
@@ -159,7 +159,13 @@ $dispatcher = patterns('',
         url_get('^printStickers', 'printSelectedTicketsStickers'),
         url_get('^(?P<tid>\d+)/tasks$', 'tasks'),
         url('^(?P<tid>\d+)/add-task$', 'addTask'),
+        url_get('^(?P<tid>\d+)/tasks/(?P<id>\d+)/view$', 'task'),
+        url_post('^(?P<tid>\d+)/tasks/(?P<id>\d+)$', 'task'),
         url_get('^lookup', 'lookup'),
+        url_get('^mass/(?P<action>[\w.]+)', 'massProcess'),
+        url_post('^mass/(?P<action>[\w.]+)', 'massProcess'),
+        url('^(?P<tid>\d+)/transfer$', 'transfer'),
+        url('^(?P<tid>\d+)/assign(?:/(?P<to>\w+))?$', 'assign'),
         url('^search', patterns('ajax.search.php:SearchAjaxAPI',
             url_get('^$', 'getAdvancedSearchDialog'),
             url_post('^$', 'doSearch'),
@@ -182,11 +188,21 @@ $dispatcher = patterns('',
         url_get('^(?P<tid>\d+)/delete', 'delete'),
         url_post('^(?P<tid>\d+)/delete$', 'delete'),
         url_get('^(?P<tid>\d+)/view$', 'task'),
-        url_post('^(?P<tid>\d+)$', 'task')
+        url_post('^(?P<tid>\d+)$', 'task'),
+        url('^add$', 'add'),
+        url('^lookup', 'lookup'),
+        url_get('^mass/(?P<action>[\w.]+)', 'massProcess'),
+        url_post('^mass/(?P<action>[\w.]+)', 'massProcess')
     )),
-    url('^/collaborators/', patterns('ajax.tickets.php:TicketsAjaxAPI',
-        url_get('^(?P<cid>\d+)/view$', 'viewCollaborator'),
-        url_post('^(?P<cid>\d+)$', 'updateCollaborator')
+    url('^/thread/', patterns('ajax.thread.php:ThreadAjaxAPI',
+        url_get('^(?P<tid>\d+)/collaborators/preview$', 'previewCollaborators'),
+        url_get('^(?P<tid>\d+)/collaborators$', 'showCollaborators'),
+        url_post('^(?P<tid>\d+)/collaborators$', 'updateCollaborators'),
+        url_get('^(?P<tid>\d+)/add-collaborator/(?P<uid>\d+)$', 'addCollaborator'),
+        url_get('^(?P<tid>\d+)/add-collaborator/auth:(?P<bk>\w+):(?P<id>.+)$', 'addRemoteCollaborator'),
+        url('^(?P<tid>\d+)/add-collaborator$', 'addCollaborator'),
+        url_get('^(?P<tid>\d+)/collaborators/(?P<cid>\d+)/view$', 'viewCollaborator'),
+        url_post('^(?P<tid>\d+)/collaborators/(?P<cid>\d+)$', 'updateCollaborator')
     )),
     url('^/draft/', patterns('ajax.draft.php:DraftAjaxAPI',
         url_post('^(?P<id>\d+)$', 'updateDraft'),
@@ -214,15 +230,39 @@ $dispatcher = patterns('',
         url_get('^(?P<lang>[\w_]+)?/tips/(?P<namespace>[\w_.]+)$', 'getTipsJsonForLang')
     )),
     url('^/i18n/', patterns('ajax.i18n.php:i18nAjaxAPI',
+        url_get('^langs/all$', 'getConfiguredLanguages'),
         url_get('^langs$', 'getSecondaryLanguages'),
         url_get('^translate/(?P<tag>\w+)$', 'getTranslations'),
         url_post('^translate/(?P<tag>\w+)$', 'updateTranslations'),
         url_get('^(?P<lang>[\w_]+)/(?P<tag>\w+)$', 'getLanguageFile')
+    )),
+    url('^/admin', patterns('ajax.admin.php:AdminAjaxAPI',
+        url('^/quick-add', patterns('ajax.admin.php:AdminAjaxAPI',
+            url('^/department$', 'addDepartment'),
+            url('^/team$', 'addTeam'),
+            url('^/role$', 'addRole'),
+            url('^/staff$', 'addStaff')
+        )),
+        url_get('^/role/(?P<id>\d+)/perms', 'getRolePerms')
+    )),
+    url('^/staff', patterns('ajax.staff.php:StaffAjaxAPI',
+        url('^/(?P<id>\d+)/set-password$', 'setPassword'),
+        url('^/(?P<id>\d+)/change-password$', 'changePassword'),
+        url_get('^/(?P<id>\d+)/perms', 'getAgentPerms'),
+        url('^/reset-permissions', 'resetPermissions'),
+        url('^/change-department', 'changeDepartment'),
+        url('^/(?P<id>\d+)/avatar/change', 'setAvatar')
     ))
 );
 
 Signal::send('ajax.scp', $dispatcher);
 
 # Call the respective function
-print $dispatcher->resolve($ost->get_path_info());
+$rv = $dispatcher->resolve($ost->get_path_info());
+
+// Indicate JSON response content-type
+if (is_string($rv) && $rv[0] == '{')
+    Http::response(200, $rv, 'application/json');
+
+print $rv;
 ?>

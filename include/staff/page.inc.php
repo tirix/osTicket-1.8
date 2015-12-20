@@ -42,15 +42,17 @@ $info=Format::htmlchars(($errors && $_POST)?$_POST:$info);
  <input type="hidden" name="do" value="<?php echo $action; ?>">
  <input type="hidden" name="a" value="<?php echo Format::htmlchars($_REQUEST['a']); ?>">
  <input type="hidden" name="id" value="<?php echo $info['id']; ?>">
- <h2><?php echo __('Site Pages'); ?>
+ <h2><?php echo $title; ?>
+    <?php if (isset($info['name'])) { ?><small>
+    — <?php echo $info['name']; ?></small>
+     <?php } ?>
     <i class="help-tip icon-question-sign" href="#site_pages"></i>
     </h2>
  <table class="form_table fixed" width="940" border="0" cellspacing="0" cellpadding="2">
     <thead>
-        <tr><td></td><td></td></tr> <!-- For fixed table layout -->
+        <tr><td style="padding:0"></td><td style="padding:0;"></td></tr> <!-- For fixed table layout -->
         <tr>
             <th colspan="2">
-                <h4><?php echo $title; ?></h4>
                 <em><?php echo __('Page information'); ?></em>
             </th>
         </tr>
@@ -62,7 +64,7 @@ $info=Format::htmlchars(($errors && $_POST)?$_POST:$info);
             </td>
             <td>
                 <input type="text" size="40" name="name" value="<?php echo $info['name']; ?>"
-                data-translate-tag="<?php echo $trans['name']; ?>"/>
+                    autofocus data-translate-tag="<?php echo $trans['name']; ?>"/>
                 &nbsp;<span class="error">*&nbsp;<?php echo $errors['name']; ?></span>
             </td>
         </tr>
@@ -111,7 +113,7 @@ $info=Format::htmlchars(($errors && $_POST)?$_POST:$info);
         </tr>
         <tr>
             <td colspan="2">
-                <ul class="tabs">
+                <ul class="tabs clean">
                     <li class="active"><a href="#content"><?php echo __('Page Content'); ?></a></li>
                     <li><a href="#notes"><?php echo __('Internal Notes'); ?></a></li>
                 </ul>
@@ -131,7 +133,14 @@ if ($page && count($langs) > 1) { ?>
 <?php } ?>
     </ul>
 <?php
-} ?>
+}
+
+// For landing page, constrain to the diplayed width of 565px;
+if ($info['type'] == 'landing')
+    $width = '565px';
+else
+    $width = '100%';
+?>
 </td>
 <td id="translations_container" style="padding-left: 10px">
     <div id="msg_info">
@@ -143,8 +152,10 @@ if ($page && count($langs) > 1) { ?>
 
         <div id="translation-<?php echo $cfg->getPrimaryLanguage(); ?>" class="tab_content"
             lang="<?php echo $cfg->getPrimaryLanguage(); ?>">
-        <textarea name="body" cols="21" rows="12" style="width:100%" class="richtext draft"
+        <textarea name="body" cols="21" rows="12" class="richtext draft"
+            data-width="<?php echo $width; ?>"
 <?php
+    if (!$info['type'] || $info['type'] == 'thank-you') echo 'data-root-context="thank-you"';
     list($draft, $attrs) = Draft::getDraftAndDataAttrs('page', $info['id'], $info['body']);
     echo $attrs; ?>><?php echo $draft ?: $info['body']; ?></textarea>
         </div>
@@ -153,10 +164,11 @@ if ($page && count($langs) > 1) { ?>
     foreach ($langs as $tag=>$nfo) {
         if ($tag == $cfg->getPrimaryLanguage())
             continue; ?>
-        <div id="translation-<?php echo $tag; ?>" class="tab_content"
-            style="display:none;" lang="<?php echo $tag; ?>">
+        <div id="translation-<?php echo $tag; ?>" class="tab_content hidden"
+            lang="<?php echo $tag; ?>">
         <textarea name="trans[<?php echo $tag; ?>][body]" cols="21" rows="12"
-            style="width:100%" class="richtext draft"
+<?php if ($info['type'] == 'thank-you') echo 'data-root-context="thank-you"'; ?>
+            style="width:100%" class="richtext draft" data-width="<?php echo $width; ?>"
 <?php
     list($draft, $attrs) = Draft::getDraftAndDataAttrs('page', $info['id'].'.'.$tag, $info['trans'][$tag]);
     echo $attrs; ?>><?php echo $draft ?: $info['trans'][$tag]; ?></textarea>
@@ -178,7 +190,7 @@ if ($page && count($langs) > 1) { ?>
         </tr>
     </tbody>
 </table>
-<p style="padding-left:225px;">
+<p style="text-align:center">
     <input type="submit" name="submit" value="<?php echo $submit_text; ?>">
     <input type="reset"  name="reset"  value="<?php echo __('Reset'); ?>">
     <input type="button" name="cancel" value="<?php echo __('Cancel'); ?>" onclick='window.location.href="pages.php"'>

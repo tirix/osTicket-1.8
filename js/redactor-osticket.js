@@ -33,47 +33,49 @@ RedactorPlugins.draft = function() {
             this.opts.imageUpload =
                 'ajax.php/draft/'+this.opts.draftId+'/attach';
         }
-        else {
+        else if (this.$textarea.hasClass('draft')) {
             // Just upload the file. A draft will be created automatically
             // and will be configured locally in the afterUpateDraft()
             this.opts.clipboardUploadUrl =
             this.opts.imageUpload = this.opts.autoCreateUrl + '/attach';
             this.opts.imageUploadCallback = this.afterUpdateDraft;
         }
+
+        // FIXME: Monkey patch Redactor's autosave enable method to disable first
+        var oldAse = this.autosave.enable;
+        this.autosave.enable = function() {
+            this.autosave.disable();
+            oldAse.call(this);
+        }.bind(this);
+
         if (autosave_url)
             this.autosave.enable();
 
-        this.$draft_saved = $('<span>')
-            .addClass("pull-right draft-saved")
-            .hide()
-            .append($('<span>')
-                .text(__('Draft Saved')));
-        // Float the [Draft Saved] box with the toolbar
-        this.$toolbar.append(this.$draft_saved);
-        // Add [Delete Draft] button to the toolbar
-        if (this.opts.draftDelete) {
-            var trash = this.draft.deleteButton =
-                this.button.add('deleteDraft', __('Delete Draft'),
-                    this.draft.deleteDraft);
-            this.button.setAwesome('deleteDraft', 'icon-trash');
-            trash.parent().addClass('pull-right');
-            trash.addClass('delete-draft');
-            if (!this.opts.draftId)
-                trash.hide();
+        if (this.$textarea.hasClass('draft')) {
+            this.$draft_saved = $('<span>')
+                .addClass("pull-right draft-saved")
+                .hide()
+                .append($('<span>')
+                    .text(__('Draft Saved')));
+            // Float the [Draft Saved] box with the toolbar
+            this.$toolbar.append(this.$draft_saved);
+
+            // Add [Delete Draft] button to the toolbar
+            if (this.opts.draftDelete) {
+                var trash = this.draft.deleteButton =
+                    this.button.add('deleteDraft', __('Delete Draft'))
+                this.button.addCallback(trash, this.draft.deleteDraft);
+                this.button.setAwesome('deleteDraft', 'icon-trash');
+                trash.parent().addClass('pull-right');
+                trash.addClass('delete-draft');
+                if (!this.opts.draftId)
+                    trash.hide();
+            }
         }
         if (this.code.get())
             this.$box.trigger('draft:recovered');
     },
     afterUpdateDraft: function(name, data) {
-        // Slight workaround. Signal the 'keyup' event normally signaled
-        // from typing in the <textarea>
-        if ($.autoLock
-            && this.$box.closest('form').find('input[name=lockCode]').val()
-            && this.code.get()
-        ) {
-            $.autoLock.handleEvent();
-        }
-
         // If the draft was created, a draft_id will be sent back — update
         // the URL to send updates in the future
         if (!this.opts.draftId && data.draft_id) {
@@ -105,15 +107,16 @@ RedactorPlugins.draft = function() {
             // Unprocessable request (Empty message)
             return;
 
-        this.displayError(error);
+        this.draft.displayError(error);
         // Cancel autosave
-        clearInterval(this.autosaveInterval);
+        this.autosave.disable();
         this.hideDraftSaved();
         this.$box.trigger('draft:failed');
     },
 
     displayError: function(json) {
-        alert(json.error);
+        $.sysAlert(json.error,
+            __('Unable to save draft. Refresh the current page to restore and continue your draft.'));
     },
 
     hideDraftSaved: function() {
@@ -135,12 +138,25 @@ RedactorPlugins.draft = function() {
                 self.opts.autosave = self.opts.autoCreateUrl;
                 self.draft.deleteButton.hide();
                 self.draft.firstSave = false;
-                this.$box.trigger('draft:deleted');
+                self.$box.trigger('draft:deleted');
             }
         });
     }
   };
 };
+
+RedactorPlugins.autolock = function() {
+  return {
+    init: function() {
+      var code = this.$box.closest('form').find('[name=lockCode]'),
+          self = this;
+      if (code.length)
+        this.opts.keydownCallback = function(e) {
+          self.$box.closest('[data-lock-object-id]').exclusive('acquire');
+        };
+    }
+  };
+}
 
 RedactorPlugins.signature = function() {
   return {
@@ -156,10 +172,10 @@ RedactorPlugins.signature = function() {
             else
                 this.$signatureBox.hide();
             $('input[name='+$el.data('signatureField')+']', $el.closest('form'))
-                .on('change', false, false, $.proxy(this.updateSignature, this));
+                .on('change', false, false, $.proxy(this.signature.updateSignature, this));
             if ($el.data('deptField'))
                 $(':input[name='+$el.data('deptField')+']', $el.closest('form'))
-                    .on('change', false, false, $.proxy(this.updateSignature, this));
+                    .on('change', false, false, $.proxy(this.signature.updateSignature, this));
             // Expand on hover
             var outer = this.$signatureBox,
                 inner = $('.inner', this.$signatureBox).get(0),
@@ -200,6 +216,9 @@ RedactorPlugins.signature = function() {
             else
                 return inner.empty().parent().hide();
         }
+        else if (selected == 'theirs' && $el.data('posterId')) {
+            url += 'agent/' + $el.data('posterId');
+        }
         else if (type == 'none')
            return inner.empty().parent().hide();
         else
@@ -209,16 +228,6 @@ RedactorPlugins.signature = function() {
     }
   }
 };
-
-RedactorPlugins.autolock = function() {
-  return {
-    init: function() {
-      var code = this.$box.closest('form').find('[name=lockCode]');
-      if ($.autoLock && code.length)
-        this.opts.keydownCallback = $.autoLock.handleEvent;
-    }
-  };
-}
 
 /* Redactor richtext init */
 $(function() {
@@ -244,26 +253,35 @@ $(function() {
         var options = $.extend({
                 'air': el.hasClass('no-bar'),
                 'buttons': el.hasClass('no-bar')
-                  ? ['formatting', '|', 'bold', 'italic', 'underline', 'deleted', '|', 'unorderedlist', 'orderedlist', 'outdent', 'indent', '|', 'image']
+                  ? ['formatting', '|', 'bold', 'italic', 'underline', 'deleted', '|', 'unorderedlist', 'orderedlist', 'outdent', 'indent', '|', 'link', 'image']
                   : ['html', '|', 'formatting', '|', 'bold',
                     'italic', 'underline', 'deleted', '|', 'unorderedlist',
                     'orderedlist', 'outdent', 'indent', '|', 'image', 'video',
                     'file', 'table', 'link', '|', 'alignment', '|',
                     'horizontalrule'],
                 'buttonSource': !el.hasClass('no-bar'),
-                'autoresize': !el.hasClass('no-bar'),
+                'autoresize': !el.hasClass('no-bar') && !el.closest('.dialog').length,
+                'maxHeight': el.closest('.dialog').length ? selectedSize : false,
                 'minHeight': selectedSize,
                 'focus': false,
                 'plugins': el.hasClass('no-bar')
-                  ? ['imagepaste','imagemanager','definedlinks']
-                  : ['imagepaste','imagemanager','imageannotate','table','video','definedlinks','autolock'],
-                'imageUpload': 'tbd',
+                  ? ['imagemanager','definedlinks']
+                  : ['imagemanager','imageannotate','table','video','definedlinks','autolock'],
+                'imageUpload': el.hasClass('draft'),
                 'imageManagerJson': 'ajax.php/draft/images/browse',
                 'syncBeforeCallback': captureImageSizes,
                 'linebreaks': true,
                 'tabFocus': false,
                 'toolbarFixedBox': true,
                 'focusCallback': function() { this.$box.addClass('no-pjax'); },
+                'initCallback': function() {
+                    if (this.$element.data('width'))
+                        this.$editor.width(this.$element.data('width'));
+                    this.$editor.attr('spellcheck', 'true');
+                    var lang = this.$editor.closest('[lang]').attr('lang');
+                    if (lang)
+                        this.$editor.attr('lang', lang);
+                },
                 'linkSize': 100000,
                 'definedLinks': 'ajax.php/config/links'
             }, options||{});
@@ -291,18 +309,24 @@ $(function() {
         if (el.hasClass('draft')) {
             el.closest('form').append($('<input type="hidden" name="draft_id"/>'));
             options['plugins'].push('draft');
+            options['plugins'].push('imagepaste');
             options.draftDelete = el.hasClass('draft-delete');
+        }
+        if (true || 'scp') { // XXX: Add this to SCP only
+            options['plugins'].push('contexttypeahead');
         }
         if (el.hasClass('fullscreen'))
             options['plugins'].push('fullscreen');
-        if ($('#ticket_thread[data-thread-id]').length)
-            options['imageManagerJson'] += '?threadId=' + $('#ticket_thread').data('threadId');
+        if (el.data('translateTag'))
+            options['plugins'].push('translatable');
+        if ($('#thread-items[data-thread-id]').length)
+            options['imageManagerJson'] += '?threadId=' + $('#thread-items').data('threadId');
         getConfig().then(function(c) {
             if (c.lang && c.lang.toLowerCase() != 'en_us' &&
                     $.Redactor.opts.langs[c.short_lang])
                 options['lang'] = c.short_lang;
-            if (c.has_rtl)
-                options['plugins'].push('textdirection');
+            //if (c.has_rtl)
+              //  options['plugins'].push('textdirection');
             if (el.find('rtl').length)
                 options['direction'] = 'rtl';
             el.redactor(options);
@@ -326,25 +350,17 @@ $(function() {
         $('.richtext').each(function() {
             var redactor = $(this).data('redactor');
             if (redactor)
-                redactor.destroy();
+                redactor.core.destroy();
         });
     };
     findRichtextBoxes();
     $(document).ajaxStop(findRichtextBoxes);
     $(document).on('pjax:success', findRichtextBoxes);
     $(document).on('pjax:start', cleanupRedactorElements);
+});
 
-    // Monkey patch paste to show the loading bar
-    var oldImagePaste = $.Redactor.fn.paste.insertFromClipboard,
-        oldImageInsert = $.Redactor.fn.image.insert;
-    $.Redactor.fn.paste.insertFromClipboard = function() {
-        this.progress.show();
-        return oldImagePaste.apply(this, arguments);
-    };
-    $.Redactor.fn.image.insert = function() {
-        this.progress.hide();
-        return oldImageInsert.apply(this, arguments);
-    };
+$(document).on('focusout.redactor', 'div.redactor_richtext', function (e) {
+    $(this).siblings('textarea').trigger('change');
 });
 
 $(document).ajaxError(function(event, request, settings) {
@@ -353,11 +369,11 @@ $(document).ajaxError(function(event, request, settings) {
         $('.richtext').each(function() {
             var redactor = $(this).data('redactor');
             if (redactor) {
+                redactor.autosave.disable();
                 clearInterval(redactor.autosaveInterval);
             }
         });
-        $('#overlay').show();
-        alert(__('Unable to save draft. Refresh the current page to restore and continue your draft.'));
-        $('#overlay').hide();
+        $.sysAlert(__('Unable to save draft.'),
+            __('Refresh the current page to restore and continue your draft.'));
     }
 });

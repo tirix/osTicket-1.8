@@ -24,15 +24,19 @@ class Page extends VerySimpleModel {
             'topics' => array(
                 'reverse' => 'Topic.page',
             ),
+            'attachments' => array(
+                'constraint' => array(
+                    "'P'" => 'Attachment.type',
+                    'id' => 'Attachment.object_id',
+                ),
+                'list' => true,
+                'null' => true,
+                'broker' => 'GenericAttachments',
+            ),
         ),
     );
 
-    var $attachments;
     var $_local;
-
-    function __onload() {
-        $this->attachments = new GenericAttachments($this->id, 'P');
-    }
 
     function getId() {
         return $this->id;
@@ -41,6 +45,7 @@ class Page extends VerySimpleModel {
     function getHashtable() {
         $base = $this->ht;
         unset($base['topics']);
+        unset($base['attachments']);
         return $base;
     }
 
@@ -212,8 +217,6 @@ class Page extends VerySimpleModel {
         try {
             $qs = self::objects()->filter(array('name'=>$name))
                 ->values_flat('id');
-            if ($lang)
-                $qs = $qs->filter(array('lang'=>$lang));
             list($id) = $qs->one();
             return $id;
         }
@@ -229,10 +232,7 @@ class Page extends VerySimpleModel {
 
     static function lookupByType($type, $lang=false) {
         try {
-            $qs = self::objects()->filter(array('type'=>$type));
-            if ($lang)
-                $qs = $qs->filter(array('lang'=>$lang));
-            return $qs->one();
+            return self::objects()->filter(array('type'=>$type))->one();
         }
         catch (DoesNotExist $ex) {
             return null;
@@ -242,7 +242,7 @@ class Page extends VerySimpleModel {
         }
     }
 
-    function update($vars, &$errors) {
+    function update($vars, &$errors, $allowempty=false) {
 
         //Cleanup.
         $vars['name']=Format::striptags(trim($vars['name']));
@@ -264,7 +264,7 @@ class Page extends VerySimpleModel {
         elseif(($pid=self::getIdByName($vars['name'])) && $pid!=$this->getId())
             $errors['name'] = __('Name already exists');
 
-        if(!$vars['body'])
+        if(!$vars['body'] && !$allowempty)
             $errors['body'] = __('Page body is required');
 
         if($errors) return false;
@@ -275,19 +275,15 @@ class Page extends VerySimpleModel {
         $this->isactive = (bool) $vars['isactive'];
         $this->notes = Format::sanitize($vars['notes']);
 
-        if (!isset($this->id)) {
-            if ($this->save()) {
-                $this->content_id = $this->id;
-                $rv = $this->save();
-            }
-        }
-        elseif ($this->save())
+        $isnew = !isset($this->id);
+        $rv = $this->save();
+        if (!$isnew)
             $rv = $this->saveTranslations($vars, $errors);
 
         // Attach inline attachments from the editor
-        $this->attachments->deleteInlines();
-        $this->attachments->upload(
-            Draft::getAttachmentIds($vars['body']), true);
+        $keepers = Draft::getAttachmentIds($vars['body']);
+        $keepers = array_map(function($i) { return $i['id']; }, $keepers);
+        $this->attachments->keepOnlyFileIds($keepers, true);
 
         if ($rv)
             return $rv;
@@ -340,6 +336,35 @@ class Page extends VerySimpleModel {
                 return false;
         }
         return true;
+    }
+
+    static function getContext($type) {
+        $context = array(
+        'thank-you' => array('ticket'),
+        'registration-staff' => array(
+            // 'token' => __('Special authentication token'),
+            'staff' => array('class' => 'Staff', 'desc' => __('Message recipient')),
+            'recipient' => array('class' => 'Staff', 'desc' => __('Message recipient')),
+            'link',
+        ),
+        'pwreset-staff' => array(
+            'staff' => array('class' => 'Staff', 'desc' => __('Message recipient')),
+            'recipient' => array('class' => 'Staff', 'desc' => __('Message recipient')),
+            'link',
+        ),
+        'registration-client' => array(
+            // 'token' => __('Special authentication token'),
+            'recipient' => array('class' => 'User', 'desc' => __('Message recipient')),
+            'link', 'user',
+        ),
+        'pwreset-client' => array(
+            'recipient' => array('class' => 'User', 'desc' => __('Message recipient')),
+            'link', 'user',
+        ),
+        'access-link' => array('ticket', 'recipient'),
+        );
+
+        return $context[$type];
     }
 }
 ?>

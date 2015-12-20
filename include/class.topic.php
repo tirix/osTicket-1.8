@@ -17,7 +17,8 @@
 require_once INCLUDE_DIR . 'class.sequence.php';
 require_once INCLUDE_DIR . 'class.filter.php';
 
-class Topic extends VerySimpleModel {
+class Topic extends VerySimpleModel
+implements TemplateVariable {
 
     static $meta = array(
         'table' => TOPIC_TABLE,
@@ -68,8 +69,27 @@ class Topic extends VerySimpleModel {
 
     const FLAG_CUSTOM_NUMBERS = 0x0001;
 
+    const SORT_ALPHA = 'a';
+    const SORT_MANUAL = 'm';
+
     function asVar() {
         return $this->getName();
+    }
+
+    static function getVarScope() {
+        return array(
+            'dept' => array(
+                'class' => 'Dept', 'desc' => __('Department'),
+            ),
+            'fullname' => __('Help topic full path'),
+            'name' => __('Help topic'),
+            'parent' => array(
+                'class' => 'Topic', 'desc' => __('Parent'),
+            ),
+            'sla' => array(
+                'class' => 'SLA', 'desc' => __('Service Level Agreement'),
+            ),
+        );
     }
 
     function getId() {
@@ -93,7 +113,7 @@ class Topic extends VerySimpleModel {
     }
 
     function getFullName() {
-        return self::getTopicName($this->getId());
+        return self::getTopicName($this->getId()) ?: $this->topic;
     }
 
     static function getTopicName($id) {
@@ -264,7 +284,10 @@ class Topic extends VerySimpleModel {
     }
 
     static function __create($vars, &$errors) {
-        $topic = self::create();
+        $topic = self::create($vars);
+        if (!isset($vars['dept_id']))
+            $vars['dept_id'] = 0;
+        $vars['id'] = $vars['topic_id'];
         $topic->update($vars, $errors);
         return $topic;
     }
@@ -326,14 +349,16 @@ class Topic extends VerySimpleModel {
             if (!$disabled && $info['disabled'])
                 continue;
             if ($disabled === self::DISPLAY_DISABLED && $info['disabled'])
-                $n .= " &mdash; ".__("(disabled)");
+                $n .= " - ".__("(disabled)");
             $requested_names[$id] = $n;
         }
 
-        // XXX: If localization requested and the current locale is not the
+        // If localization requested and the current locale is not the
         // primary, the list may need to be sorted. Caching is ok here,
         // because the locale is not going to be changed within a single
         // request.
+        if ($localize && $cfg->getTopicSortMode() == self::SORT_ALPHA)
+            return Internationalization::sortKeyedList($requested_names);
 
         return $requested_names;
     }
@@ -344,6 +369,11 @@ class Topic extends VerySimpleModel {
 
     static function getAllHelpTopics($localize=false) {
         return self::getHelpTopics(false, true, $localize);
+    }
+
+    static function getLocalNameById($id) {
+        $topics = static::getHelpTopics(false, true);
+        return $topics[$id];
     }
 
     static function getIdByName($name, $pid=0) {
@@ -503,16 +533,7 @@ class Topic extends VerySimpleModel {
         if (!($names = static::getHelpTopics(false, true, false)))
             return;
 
-        if ($cfg && function_exists('collator_create')) {
-            $coll = Collator::create($cfg->getPrimaryLanguage());
-            // UASORT is necessary to preserve the keys
-            uasort($names, function($a, $b) use ($coll) {
-                return $coll->compare($a, $b); });
-        }
-        else {
-            // Really only works on English names
-            asort($names);
-        }
+        $names = Internationalization::sortKeyedList($names);
 
         $update = array_keys($names);
         foreach ($update as $idx=>&$id) {

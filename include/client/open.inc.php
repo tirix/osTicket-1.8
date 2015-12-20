@@ -19,6 +19,8 @@ if (!$info['topicId'])
 $forms = array();
 if ($info['topicId'] && ($topic=Topic::lookup($info['topicId']))) {
     foreach ($topic->getForms() as $F) {
+        if (!$F->hasAnyVisibleFields())
+            continue;
         if ($_POST) {
             $F = $F->instanciate();
             $F->isValidForClient();
@@ -89,8 +91,6 @@ if ($info['topicId'] && ($topic=Topic::lookup($info['topicId']))) {
     </tbody>
     <tbody id="dynamic-form">
         <?php foreach ($forms as $form) {
-            if (!$form->hasAnyVisibleFields())
-                continue;
             include(CLIENTINC_DIR . 'templates/dynamic-form.tmpl.php');
         } ?>
     </tbody>
@@ -116,7 +116,7 @@ if ($info['topicId'] && ($topic=Topic::lookup($info['topicId']))) {
     </tbody>
   </table>
 <hr/>
-  <p style="text-align:center;">
+  <p class="buttons" style="text-align:center;">
         <input type="submit" value="<?php echo __('Create Ticket');?>">
         <input type="reset" name="reset" value="<?php echo __('Reset');?>">
         <input type="button" name="cancel" value="<?php echo __('Cancel'); ?>" onclick="javascript:

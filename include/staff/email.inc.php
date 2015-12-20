@@ -2,7 +2,7 @@
 if(!defined('OSTADMININC') || !$thisstaff || !$thisstaff->isAdmin()) die('Access Denied');
 $info = $qs = array();
 if($email && $_REQUEST['a']!='add'){
-    $title=__('Update Email');
+    $title=__('Update Email Address');
     $action='update';
     $submit_text=__('Save Changes');
     $info=$email->getInfo();
@@ -18,7 +18,7 @@ if($email && $_REQUEST['a']!='add'){
 
     $qs += array('id' => $email->getId());
 }else {
-    $title=__('Add New Email');
+    $title=__('Add New Email Address');
     $action='create';
     $submit_text=__('Submit');
     $info['ispublic']=isset($info['ispublic'])?$info['ispublic']:1;
@@ -34,7 +34,11 @@ if($email && $_REQUEST['a']!='add'){
 }
 $info=Format::htmlchars(($errors && $_POST)?$_POST:$info);
 ?>
-<h2><?php echo __('Email Address');?></h2>
+<h2><?php echo $title; ?>
+    <?php if (isset($info['email'])) { ?><small>
+    — <?php echo $info['email']; ?></small>
+    <?php } ?>
+</h2>
 <form action="emails.php?<?php echo Http::build_query($qs); ?>" method="post" id="save">
  <?php csrf_token(); ?>
  <input type="hidden" name="do" value="<?php echo $action; ?>">
@@ -44,7 +48,6 @@ $info=Format::htmlchars(($errors && $_POST)?$_POST:$info);
     <thead>
         <tr>
             <th colspan="2">
-                <h4><?php echo $title; ?></h4>
                 <em><strong><?php echo __('Email Information and Settings');?></strong></em>
             </th>
         </tr>
@@ -55,7 +58,8 @@ $info=Format::htmlchars(($errors && $_POST)?$_POST:$info);
                 <?php echo __('Email Address');?>
             </td>
             <td>
-                <input type="text" size="35" name="email" value="<?php echo $info['email']; ?>">
+                <input type="text" size="35" name="email" value="<?php echo $info['email']; ?>"
+                    autofocus>
                 &nbsp;<span class="error">*&nbsp;<?php echo $errors['email']; ?></span>
             </td>
         </tr>
@@ -217,7 +221,7 @@ $info=Format::htmlchars(($errors && $_POST)?$_POST:$info);
             <td>
 		<span>
 			<select name="mail_proto">
-                <option value=''>&mdash; <?php __('Select protocol'); ?> &mdash;</option>
+                <option value=''>&mdash; <?php echo __('Select protocol'); ?> &mdash;</option>
 <?php
     foreach (MailFetcher::getSupportedProtos() as $proto=>$desc) { ?>
                 <option value="<?php echo $proto; ?>" <?php

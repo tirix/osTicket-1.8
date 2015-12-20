@@ -32,17 +32,15 @@ class FAQ extends VerySimpleModel {
             ),
             'attachments' => array(
                 'constraint' => array(
-                    "'F'" => 'GenericAttachment.type',
-                    'faq_id' => 'GenericAttachment.object_id',
+                    "'F'" => 'Attachment.type',
+                    'faq_id' => 'Attachment.object_id',
                 ),
                 'list' => true,
                 'null' => true,
+                'broker' => 'GenericAttachments',
             ),
             'topics' => array(
-                'constraint' => array(
-                    'faq_id' => 'FaqTopic.faq_id'
-                ),
-                'null' => true,
+                'reverse' => 'FaqTopic.faq',
             ),
         ),
     );
@@ -53,28 +51,23 @@ class FAQ extends VerySimpleModel {
                 'title' =>
                 /* @trans */ 'FAQ',
                 'desc'  =>
-                /* @trans */ 'Ability to add/update/disable/delete knowledgebase categories and FAQs'),
-            );
+                /* @trans */ 'Ability to add/update/disable/delete knowledgebase categories and FAQs',
+                'primary' => true,
+            ));
 
-
-    var $attachments;
-    var $topics;
     var $_local;
+    var $_attachments;
 
     const VISIBILITY_PRIVATE = 0;
     const VISIBILITY_PUBLIC = 1;
     const VISIBILITY_FEATURED = 2;
-
-    function __onload() {
-        if (isset($this->faq_id))
-            $this->attachments = new GenericAttachments($this->getId(), 'F');
-    }
 
     /* ------------------> Getter methods <--------------------- */
     function getId() { return $this->faq_id; }
     function getHashtable() {
         $base = $this->ht;
         unset($base['category']);
+        unset($base['attachments']);
         return $base;
     }
     function getKeywords() { return $this->keywords; }
@@ -116,28 +109,19 @@ class FAQ extends VerySimpleModel {
 
     function getHelpTopicsIds() {
         $ids = array();
-        foreach ($this->getHelpTopics() as $topic)
-            $ids[] = $topic->getId();
+        foreach ($this->getHelpTopics() as $T)
+            $ids[] = $T->topic->getId();
         return $ids;
     }
 
     function getHelpTopicNames() {
         $names = array();
-        foreach ($this->getHelpTopics() as $topic)
-            $names[] = $topic->getFullName();
+        foreach ($this->getHelpTopics() as $T)
+            $names[] = $T->topic->getFullName();
         return $names;
     }
 
     function getHelpTopics() {
-        //XXX: change it to obj (when needed)!
-
-        if (!isset($this->topics)) {
-            $this->topics = Topic::objects()->filter(array(
-                'topic_id__in' => FaqTopic::objects()->filter(array(
-                        'faq_id' => $this->getId(),
-                    ))->values('topic_id'),
-            ));
-        }
         return $this->topics;
     }
 
@@ -147,10 +131,6 @@ class FAQ extends VerySimpleModel {
     function setAnswer($text) { $this->answer = $text; }
     function setKeywords($words) { $this->keywords = $words; }
     function setNotes($text) { $this->notes = $text; }
-
-    /* For ->attach() and ->detach(), use $this->attachments() (nolint) */
-    function attach($file) { return $this->_attachments->add($file); }
-    function detach($file) { return $this->_attachments->remove($file); }
 
     function publish() {
         $this->setPublished(1);
@@ -162,14 +142,9 @@ class FAQ extends VerySimpleModel {
         return $this->save();
     }
 
-    function logView() {
-        $this->views++;
-        $this->save();
-    }
-
     function printPdf() {
         global $thisstaff;
-        require_once(INCLUDE_DIR.'mpdf/mpdf.php');
+        require_once(INCLUDE_DIR.'class.pdf.php');
 
         $paper = 'Letter';
         if ($thisstaff)
@@ -180,7 +155,7 @@ class FAQ extends VerySimpleModel {
         include STAFFINC_DIR . 'templates/faq-print.tmpl.php';
         $html = ob_get_clean();
 
-        $pdf = new mPDF('', $paper);
+        $pdf = new mPDFWithLocalImages('', $paper);
         // Setup HTML writing and load default thread stylesheet
         $pdf->WriteHtml(
             '<style>
@@ -190,7 +165,7 @@ class FAQ extends VerySimpleModel {
             .thread-body { font-family: serif; }'
             .file_get_contents(ROOT_DIR.'css/thread.css')
             .'</style>'
-            .'<div>'.$html.'</div>');
+            .'<div>'.$html.'</div>', 0, true, true);
 
         $pdf->Output(Format::slugify($faq->getQuestion()) . '.pdf', 'I');
     }
@@ -215,8 +190,11 @@ class FAQ extends VerySimpleModel {
     function getLocalQuestion($lang=false) {
         return $this->_getLocal('question', $lang);
     }
-    function getLocalAnswerWithImages($lang=false) {
+    function getLocalAnswer($lang=false) {
         return $this->_getLocal('answer', $lang);
+    }
+    function getLocalAnswerWithImages($lang=false) {
+        return Format::viewableImages($this->getLocalAnswer($lang));
     }
     function _getLocal($what, $lang=false) {
         if (!$lang) {
@@ -241,8 +219,10 @@ class FAQ extends VerySimpleModel {
     }
 
     function getLocalAttachments($lang=false) {
-        return $this->attachments->getSeparates(
-            $lang ?: $this->getDisplayLang());
+        return $this->attachments->getSeparates()->filter(Q::any(array(
+            'lang__isnull' => true,
+            'lang' => $lang ?: $this->getDisplayLang(),
+        )));
     }
 
     function updateTopics($ids){
@@ -258,14 +238,10 @@ class FAQ extends VerySimpleModel {
             }
         }
 
-        $sql='DELETE FROM '.FAQ_TOPIC_TABLE.' WHERE faq_id='.db_input($this->getId());
-        if($ids)
-            $sql.=' AND topic_id NOT IN('.implode(',', db_input($ids)).')';
-
-        if (!db_query($sql))
-            return false;
-
-        Signal::send('model.updated', $this);
+        if ($ids)
+            $this->topics->filter(Q::not(array('topic_id__in' => $ids)))->delete();
+        else
+            $this->topics->delete();
     }
 
     function saveTranslations($vars) {
@@ -314,16 +290,17 @@ class FAQ extends VerySimpleModel {
         return true;
     }
 
-    function getVisibleAttachments() {
-        return array_merge(
-            $this->attachments->getSeparates() ?: array(),
-            $this->getLocalAttachments());
+    function getAttachments($lang=null) {
+        $att = $this->attachments;
+        if ($lang)
+            $att = $att->window(array('lang' => $lang));
+        return $att;
     }
 
     function getAttachmentsLinks($separator=' ',$target='') {
 
         $str='';
-        if ($attachments = $this->getVisibleAttachments()) {
+        if ($attachments = $this->getLocalAttachments()->all()) {
             foreach($attachments as $attachment ) {
             /* The h key must match validation in file.php */
             if($attachment['size'])
@@ -341,7 +318,7 @@ class FAQ extends VerySimpleModel {
         try {
             parent::delete();
             // Cleanup help topics.
-            db_query('DELETE FROM '.FAQ_TOPIC_TABLE.' WHERE faq_id='.db_input($this->getId()));
+            $this->topics->delete();
             // Cleanup attachments.
             $this->attachments->deleteAll();
         }
@@ -367,10 +344,10 @@ class FAQ extends VerySimpleModel {
     }
 
     static function allPublic() {
-        return static::objects()->exclude(array(
+        return static::objects()->exclude(Q::any(array(
             'ispublished'=>self::VISIBILITY_PRIVATE,
             'category__ispublic'=>Category::VISIBILITY_PRIVATE,
-        ));
+        )));
     }
 
     static function countPublishedFAQs() {
@@ -384,7 +361,7 @@ class FAQ extends VerySimpleModel {
     static function getFeatured() {
         return self::objects()
             ->filter(array('ispublished__in'=>array(1,2), 'category__ispublic'=>1))
-            ->order_by('-ispublished','-views');
+            ->order_by('-ispublished');
     }
 
     static function findIdByQuestion($question) {
@@ -431,25 +408,21 @@ class FAQ extends VerySimpleModel {
         $this->notes = Format::sanitize($vars['notes']);
         $this->keywords = ' ';
 
+        $this->updateTopics($vars['topics']);
+
         if (!$this->save())
             return false;
-
-        $this->updateTopics($vars['topics']);
 
         // General attachments (for all languages)
         // ---------------------
         // Delete removed attachments.
         if (isset($vars['files'])) {
-            $keepers = $vars['files'];
-            if (($attachments = $this->attachments->getSeparates())) {
-                foreach($attachments as $file) {
-                    if($file['id'] && !in_array($file['id'], $keepers))
-                        $this->attachments->delete($file['id']);
-                }
-            }
+            $this->getAttachments()->keepOnlyFileIds($vars['files'], false);
         }
-        // Upload new attachments IF any.
-        $this->attachments->upload($keepers);
+
+        $images = Draft::getAttachmentIds($vars['answer']);
+        $images = array_map(function($i) { return $i['id']; }, $images);
+        $this->getAttachments()->keepOnlyFileIds($images, true);
 
         // Handle language-specific attachments
         // ----------------------
@@ -463,21 +436,11 @@ class FAQ extends VerySimpleModel {
 
                 $keepers = $vars['files_'.$lang];
 
-                // Delete removed attachments.
-                if (($attachments = $this->attachments->getSeparates($lang))) {
-                    foreach ($attachments as $file) {
-                        if ($file['id'] && !in_array($file['id'], $keepers))
-                            $this->attachments->delete($file['id']);
-                    }
-                }
-                // Upload new attachments IF any.
-                $this->attachments->upload($keepers, false, $lang);
+                // FIXME: Include inline images in translated content
+
+                $this->getAttachments($lang)->keepOnlyFileIds($keepers, false, $lang);
             }
         }
-
-        // Inline images (attached to the draft)
-        $this->attachments->deleteInlines();
-        $this->attachments->upload(Draft::getAttachmentIds($vars['answer']));
 
         if (isset($vars['trans']) && !$this->saveTranslations($vars))
             return false;
@@ -504,6 +467,7 @@ class FaqTopic extends VerySimpleModel {
     static $meta = array(
         'table' => FAQ_TOPIC_TABLE,
         'pk' => array('faq_id', 'topic_id'),
+        'select_related' => 'topic',
         'joins' => array(
             'faq' => array(
                 'constraint' => array(
@@ -518,4 +482,19 @@ class FaqTopic extends VerySimpleModel {
         ),
     );
 }
-?>
+
+class FaqAccessMgmtForm
+extends AbstractForm {
+    function buildFields() {
+        return array(
+            'ispublished' => new ChoiceField(array(
+                'label' => __('Listing Type'),
+                'choices' => array(
+                    FAQ::VISIBILITY_PRIVATE => __('Internal'),
+                    FAQ::VISIBILITY_PUBLIC => __('Public'),
+                    FAQ::VISIBILITY_FEATURED => __('Featured'),
+                ),
+            )),
+        );
+    }
+}

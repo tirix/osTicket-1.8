@@ -70,6 +70,9 @@ elseif (!$thisstaff || !($thisstaff->getId() || $thisstaff->isValid())) {
        @header("Location: $dest");
 }
 
+// Browsers shouldn't suggest saving that username/password
+Http::response(422);
+
 define("OSTSCPINC",TRUE); //Make includes happy!
 include_once(INCLUDE_DIR.'staff/login.tpl.php');
 ?>

@@ -1,6 +1,6 @@
 <?php
 if (!defined('OSTSCPINC') || !$thisstaff
-        || !$thisstaff->getRole()->hasPerm(FAQ::PERM_MANAGE))
+        || !$thisstaff->hasPerm(FAQ::PERM_MANAGE))
     die('Access Denied');
 
 $info = $qs = array();
@@ -89,7 +89,7 @@ if ($topics = Topic::getAllHelpTopics()) {
     <?php } ?>
     </select>
     <script type="text/javascript">
-        $(function() { $("#help-topic-selection").chosen(); });
+        $(function() { $("#help-topic-selection").select2(); });
     </script>
 <?php } ?>
     </div>
@@ -100,10 +100,10 @@ if ($topics = Topic::getAllHelpTopics()) {
         <i class="help-tip icon-question-sign" href="#listing_type"></i>
     </div>
     <select name="ispublished">
-        <option value="2" <?php echo $info['ispublished'] ? 'selected="selected"' : ''; ?>>
+        <option value="2" <?php echo $info['ispublished'] == 2 ? 'selected="selected"' : ''; ?>>
             <?php echo __('Featured (promote to front page)'); ?>
         </option>
-        <option value="1" <?php echo $info['ispublished'] ? 'selected="selected"' : ''; ?>>
+        <option value="1" <?php echo $info['ispublished'] == 1 ? 'selected="selected"' : ''; ?>>
             <?php echo __('Public').' '.__('(publish)'); ?>
         </option>
         <option value="0" <?php echo !$info['ispublished'] ? 'selected="selected"' : ''; ?>>
@@ -116,7 +116,7 @@ if ($topics = Topic::getAllHelpTopics()) {
 
 <div style="margin-top:20px"></div>
 
-<ul class="tabs" style="margin-top:9px;">
+<ul class="tabs clean" style="margin-top:9px;">
     <li class="active"><a href="#article"><?php echo __('Article Content'); ?></a></li>
     <li><a href="#attachments"><?php echo __('Attachments') . sprintf(' (%d)',
         $faq ? count($faq->attachments->getSeparates('')) : 0); ?></a></li>
@@ -128,10 +128,12 @@ if ($topics = Topic::getAllHelpTopics()) {
 <?php echo __('Here you can manage the question and answer for the article. Multiple languages are available if enabled in the admin panel.'); ?>
 <div class="clear"></div>
 
+<table width="100%"><tr>
 <?php
 $langs = Internationalization::getConfiguredSystemLanguages();
-if ($faq) { ?>
-    <ul class="vertical tabs left" style="margin-top:10px;">
+if ($faq && count($langs) > 1) { ?>
+<td valign="top">
+    <ul class="vertical tabs left" id="trans" style="margin-top:10px;">
         <li class="empty"><i class="icon-globe" title="This content is translatable"></i></li>
 <?php foreach ($langs as $tag=>$i) {
     list($lang, $locale) = explode('_', $tag);
@@ -143,9 +145,11 @@ if ($faq) { ?>
     </a></li>
 <?php } ?>
     </ul>
+</td>
 <?php
 } ?>
 
+<td id="trans_container">
 <?php foreach ($langs as $tag=>$i) {
     $code = $i['code'];
     if ($tag == $cfg->getPrimaryLanguage()) {
@@ -163,8 +167,8 @@ if ($faq) { ?>
         $aname = 'trans['.$code.'][answer]';
     }
 ?>
-    <div class="tab_content" style="margin:0 45px;<?php
-        if ($code != $cfg->getPrimaryLanguage()) echo "display:none;";
+    <div class="tab_content <?php
+        if ($code != $cfg->getPrimaryLanguage()) echo "hidden";
      ?>" id="lang-<?php echo $tag; ?>"
 <?php if ($i['direction'] == 'rtl') echo 'dir="rtl" class="rtl"'; ?>
     >
@@ -184,6 +188,7 @@ if ($faq) { ?>
     </div>
     <div>
     <textarea name="<?php echo $aname; ?>" cols="21" rows="12"
+        data-width="670px"
         class="richtext draft" <?php
 list($draft, $attrs) = Draft::getDraftAndDataAttrs('faq', $namespace, $answer);
 echo $attrs; ?>><?php echo $draft ?: $answer;
@@ -192,6 +197,7 @@ echo $attrs; ?>><?php echo $draft ?: $answer;
     </div>
     </div>
 <?php } ?>
+    </td></tr></table>
 </div>
 
 <div class="tab_content" id="attachments" style="display:none">
@@ -226,7 +232,7 @@ echo $attrs; ?>><?php echo $draft ?: $answer;
     </ul>
 <?php foreach ($langs as $lang=>$i) {
     $code = $i['code']; ?>
-    <div class="tab_content" style="margin-left:45px" id="attachments-<?php echo $i['code']; ?>" <?php if ($i['code'] != $cfg->getPrimaryLanguage()) echo 'style="display:none;"'; ?>>
+    <div class="tab_content" id="attachments-<?php echo $i['code']; ?>" <?php if ($i['code'] != $cfg->getPrimaryLanguage()) echo 'style="display:none;"'; ?>>
     <div style="padding:0 0 9px">
         <strong><?php echo sprintf(__(
             /* %s is the name of a language */ 'Attachments for %s'),
@@ -243,8 +249,7 @@ echo $attrs; ?>><?php echo $draft ?: $answer;
 
 <div class="tab_content" style="display:none;" id="notes">
     <div>
-        <b><?php echo __('Internal Notes');?></b>:
-        <div class="faded"><?php echo __("Be liberal, they're internal");?></div>
+        <b><?php echo __('Internal Notes');?></b>:<span class="faded"><?php echo __("Be libergsdfgal, they're internal");?></span>
     </div>
     <div style="margin-top:10px"></div>
     <textarea class="richtext no-bar" name="notes" cols="21"
@@ -260,5 +265,3 @@ echo $attrs; ?>><?php echo $draft ?: $answer;
     <input type="button" name="cancel" value="<?php echo __('Cancel'); ?>" onclick='window.location.href="faq.php?<?php echo $qstr; ?>"'>
 </p>
 </form>
-
-<link rel="stylesheet" type="text/css" href="<?php echo ROOT_PATH; ?>css/jquery.multiselect.css" />

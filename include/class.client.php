@@ -16,7 +16,7 @@
 require_once INCLUDE_DIR.'class.user.php';
 
 abstract class TicketUser
-implements EmailContact, ITicketUser {
+implements EmailContact, ITicketUser, TemplateVariable {
 
     static private $token_regex = '/^(?P<type>\w{1})(?P<algo>\d+)x(?P<hash>.*)$/i';
 
@@ -53,6 +53,19 @@ implements EmailContact, ITicketUser {
 
         return false;
 
+    }
+
+    // Required for Internationalization::getCurrentLanguage() in templates
+    function getLanguage() {
+        return $this->user->getLanguage();
+    }
+
+    static function getVarScope() {
+        return array(
+            'email' => __('Email address'),
+            'name' => array('class' => 'PersonsName', 'desc' => __('Full name')),
+            'ticket_link' => __('Auth. token used for auto-login'),
+        );
     }
 
     function getId() { return ($this->user) ? $this->user->getId() : null; }
@@ -151,6 +164,8 @@ class  EndUser extends BaseAuthenticatedUser {
 
     protected $user;
     protected $_account = false;
+    protected $_stats;
+    protected $topic_stats;
 
     function __construct($user) {
         $this->user = $user;
@@ -210,26 +225,66 @@ class  EndUser extends BaseAuthenticatedUser {
     }
 
     function getTicketStats() {
+        if (!isset($this->_stats))
+            $this->_stats = $this->getStats();
 
-        if (!isset($this->ht['stats']))
-            $this->ht['stats'] = $this->getStats();
-
-        return $this->ht['stats'];
+        return $this->_stats;
     }
 
-    function getNumTickets() {
-        if (!($stats=$this->getTicketStats()))
-            return 0;
-
-        return $stats['open']+$stats['closed'];
+    function getNumTickets($forMyOrg=false, $state=false) {
+        $stats = $this->getTicketStats();
+        $count = 0;
+        $section = $forMyOrg ? 'myorg' : 'mine';
+        foreach ($stats[$section] as $row) {
+            if ($state && $row['status__state'] != $state)
+                continue;
+            $count += $row['count'];
+        }
+        return $count;
     }
 
-    function getNumOpenTickets() {
-        return ($stats=$this->getTicketStats())?$stats['open']:0;
+    function getNumOpenTickets($forMyOrg=false) {
+        return $this->getNumTickets($forMyOrg, 'open') ?: 0;
     }
 
-    function getNumClosedTickets() {
-        return ($stats=$this->getTicketStats())?$stats['closed']:0;
+    function getNumClosedTickets($forMyOrg=false) {
+        return $this->getNumTickets($forMyOrg, 'closed') ?: 0;
+    }
+
+    function getNumTopicTickets($topic_id, $forMyOrg=false) {
+        $stats = $this->getTicketStats();
+        $section = $forMyOrg ? 'myorg' : 'mine';
+        if (!isset($this->topic_stats)) {
+            $this->topic_stats = array();
+            foreach ($stats[$section] as $row) {
+                $this->topic_stats[$row['topic_id']] += $row['count'];
+            }
+        }
+        return $this->topic_stats[$topic_id];
+    }
+
+    function getNumTopicTicketsInState($topic_id, $state=false, $forMyOrg=false) {
+        $stats = $this->getTicketStats();
+        $count = 0;
+        $section = $forMyOrg ? 'myorg' : 'mine';
+        foreach ($stats[$section] as $row) {
+            if ($topic_id != $row['topic_id'])
+                continue;
+            if ($state && $state != $row['status__state'])
+                continue;
+            $count += $row['count'];
+        }
+        return $count;
+    }
+
+    function getNumOrganizationTickets() {
+        return $this->getNumTickets(true);
+    }
+    function getNumOpenOrganizationTickets() {
+        return $this->getNumTickets(true, 'open');
+    }
+    function getNumClosedOrganizationTickets() {
+        return $this->getNumTickets(true, 'closed');
     }
 
     function getAccount() {
@@ -246,39 +301,30 @@ class  EndUser extends BaseAuthenticatedUser {
     }
 
     private function getStats() {
+        $basic = Ticket::objects()
+            ->annotate(array('count' => SqlAggregate::COUNT('ticket_id')))
+            ->values('status__state', 'topic_id');
 
-        $where = ' WHERE ticket.user_id = '.db_input($this->getId())
-                .' OR collab.user_id = '.db_input($this->getId()).' ';
+        // Share tickets among the organization for owners only
+        $mine = clone $basic;
+        $collab = clone $basic;
+        $mine->filter(array(
+            'user_id' => $this->getId(),
+        ));
 
-        $join  =  'LEFT JOIN '.THREAD_TABLE.' thread
-                    ON (ticket.ticket_id = thread.object_id and thread.object_type = \'T\')
-                   LEFT JOIN '.THREAD_COLLABORATOR_TABLE.' collab
-                    ON (collab.thread_id=thread.id
-                            AND collab.user_id = '.db_input($this->getId()).' ) ';
+        // TODO: Implement UNION ALL support in the ORM
+        $mine->union($collab->filter(array(
+            'thread__collaborators__user_id' => $this->getId(),
+            Q::not(array('user_id' => $this->getId()))
+        )));
 
-        $sql =  'SELECT \'open\', count( ticket.ticket_id ) AS tickets '
-                .'FROM ' . TICKET_TABLE . ' ticket '
-                .'INNER JOIN '.TICKET_STATUS_TABLE. ' status
-                    ON (ticket.status_id=status.id
-                            AND status.state=\'open\') '
-                . $join
-                . $where
-
-                .'UNION SELECT \'closed\', count( ticket.ticket_id ) AS tickets '
-                .'FROM ' . TICKET_TABLE . ' ticket '
-                .'INNER JOIN '.TICKET_STATUS_TABLE. ' status
-                    ON (ticket.status_id=status.id
-                            AND status.state=\'closed\' ) '
-                . $join
-                . $where;
-
-        $res = db_query($sql);
-        $stats = array();
-        while($row = db_fetch_row($res)) {
-            $stats[$row[0]] = $row[1];
+        if ($this->getOrgId()) {
+            $myorg = clone $basic;
+            $myorg->filter(array('user__org_id' => $this->getOrgId()))
+                ->values('user__org_id');
         }
 
-        return $stats;
+        return array('mine' => $mine, 'myorg' => $myorg);
     }
 
     function onLogin($bk) {
@@ -317,7 +363,7 @@ class ClientAccount extends UserAccount {
         // TODO: Drop password-reset tokens from the config table for
         //       this user id
         $sql = 'DELETE FROM '.CONFIG_TABLE.' WHERE `namespace`="pwreset"
-            AND `key`='.db_input($this->getUserId());
+            AND `value`='.db_input('c'.$this->getUserId());
         if (!db_query($sql, false))
             return false;
 
@@ -333,6 +379,11 @@ class ClientAccount extends UserAccount {
     function update($vars, &$errors) {
         global $cfg;
 
+        // FIXME: Updates by agents should go through UserAccount::update()
+        global $thisstaff;
+        if ($thisstaff)
+            return parent::update($vars, $errors);
+
         $rtoken = $_SESSION['_client']['reset-token'];
         if ($vars['passwd1'] || $vars['passwd2'] || $vars['cpasswd'] || $rtoken) {
 
@@ -345,7 +396,7 @@ class ClientAccount extends UserAccount {
 
             if ($rtoken) {
                 $_config = new Config('pwreset');
-                if ($_config->get($rtoken) != $this->getUserId())
+                if ($_config->get($rtoken) != 'c'.$this->getUserId())
                     $errors['err'] =
                         __('Invalid reset token. Logout and try again');
                 elseif (!($ts = $_config->lastModified($rtoken))
@@ -401,11 +452,14 @@ interface EmailContact {
 }
 
 interface ITicketUser {
+/* PHP 5.3 < 5.3.8 will crash with some abstract inheritance issue
+ * ------------------------------------------------------------
     function isOwner();
     function flagGuest();
     function isGuest();
     function getUserId();
     function getTicketId();
     function getTicket();
+ */
 }
 ?>

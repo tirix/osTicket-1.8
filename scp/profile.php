@@ -33,7 +33,14 @@ if($_POST && $_POST['id']!=$thisstaff->getId()) { //Check dummy ID used on the f
 
 //Forced password Change.
 if($thisstaff->forcePasswdChange() && !$errors['err'])
-    $errors['err']=sprintf(__('<b>Hi %s</b> - You must change your password to continue!'),$thisstaff->getFirstName());
+    $errors['err'] = str_replace(
+        '<a>',
+        sprintf('<a data-dialog="ajax.php/staff/%d/change-password" href="#">', $thisstaff->getId()),
+        sprintf(
+            __('<b>Hi %s</b> - You must <a>change your password to continue</a>!'),
+            $thisstaff->getFirstName()
+        )
+    );
 elseif($thisstaff->onVacation() && !$warn)
     $warn=sprintf(__("<b>Welcome back %s</b>! You are listed as 'on vacation' Please let your manager know that you are back."),$thisstaff->getFirstName());
 

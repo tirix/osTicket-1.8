@@ -35,17 +35,32 @@ if($_REQUEST['id']) {
     }
 }
 
-//Lookup user if id is available.
-if ($_REQUEST['uid'])
+if ($_REQUEST['uid']) {
     $user = User::lookup($_REQUEST['uid']);
+} elseif (!$ticket) {
+    $queue_key = sprintf('::Q:%s', ObjectModel::OBJECT_TYPE_TICKET);
+    $queue_name = strtolower($_GET['status'] ?: $_GET['a']); //Status is overloaded
+    if (!$queue_name && isset($_SESSION[$queue_key]))
+        $queue_name = $_SESSION[$queue_key];
+
+    // Stash current queue view
+    $_SESSION[$queue_key] = $queue_name;
+
+    // Set queue as status
+    if (@!isset($_REQUEST['advanced'])
+            && @$_REQUEST['a'] != 'search'
+            && !isset($_GET['status'])
+            && $queue_name)
+        $_GET['status'] = $_REQUEST['status'] = $queue_name;
+}
 
 // Configure form for file uploads
-$response_form = new Form(array(
+$response_form = new SimpleForm(array(
     'attachments' => new FileUploadField(array('id'=>'attach',
         'name'=>'attach:response',
         'configuration' => array('extensions'=>'')))
 ));
-$note_form = new Form(array(
+$note_form = new SimpleForm(array(
     'attachments' => new FileUploadField(array('id'=>'attach',
         'name'=>'attach:note',
         'configuration' => array('extensions'=>'')))
@@ -69,18 +84,20 @@ if($_POST && !$errors):
                 if(!$_POST['response'])
                     $errors['response']=__('Response required');
 
-                if (!$lock) {
-                    $errors['err'] = __('This action requires a lock. Please try again');
-                }
-                // Use locks to avoid double replies
-                elseif ($lock->getStaffId()!=$thisstaff->getId()) {
-                    $errors['err'] = __('Action Denied. Ticket is locked by someone else!');
-                }
-                // Attempt to renew the lock if possible
-                elseif (($lock->isExpired() && !$lock->renew())
-                    ||($lock->getCode() != $_POST['lockCode'])
-                ) {
-                    $errors['err'] = __('Your lock has expired. Please try again');
+                if ($cfg->getLockTime()) {
+                    if (!$lock) {
+                        $errors['err'] = __('This action requires a lock. Please try again');
+                    }
+                    // Use locks to avoid double replies
+                    elseif ($lock->getStaffId()!=$thisstaff->getId()) {
+                        $errors['err'] = __('Action Denied. Ticket is locked by someone else!');
+                    }
+                    // Attempt to renew the lock if possible
+                    elseif (($lock->isExpired() && !$lock->renew())
+                        ||($lock->getCode() != $_POST['lockCode'])
+                    ) {
+                        $errors['err'] = __('Your lock has expired. Please try again');
+                    }
                 }
 
                 //Make sure the email is not banned
@@ -118,97 +135,23 @@ if($_POST && !$errors):
                 $errors['err']=__('Unable to post the reply. Correct the errors below and try again!');
             }
             break;
-        case 'transfer': /** Transfer ticket **/
-            //Check permission
-            if(!$role->hasPerm(TicketModel::PERM_TRANSFER))
-                $errors['err']=$errors['transfer'] = __('Action Denied. You are not allowed to transfer tickets.');
-            else {
-
-                //Check target dept.
-                if(!$_POST['deptId'])
-                    $errors['deptId'] = __('Select department');
-                elseif($_POST['deptId']==$ticket->getDeptId())
-                    $errors['deptId'] = __('Ticket already in the department');
-                elseif(!($dept=Dept::lookup($_POST['deptId'])))
-                    $errors['deptId'] = __('Unknown or invalid department');
-
-                //Transfer message - required.
-                if(!$_POST['transfer_comments'])
-                    $errors['transfer_comments'] = __('Transfer comments required');
-                elseif(strlen($_POST['transfer_comments'])<5)
-                    $errors['transfer_comments'] = __('Transfer comments too short!');
-
-                //If no errors - them attempt the transfer.
-                if(!$errors && $ticket->transfer($_POST['deptId'], $_POST['transfer_comments'])) {
-                    $msg = sprintf(__('Ticket transferred successfully to %s'),
-                            $ticket->getDept()->getFullName());
-                    //Check to make sure the staff still has access to the ticket
-                    if(!$ticket->checkStaffPerm($thisstaff))
-                        $ticket=null;
-
-                } elseif(!$errors['transfer']) {
-                    $errors['err'] = __('Unable to complete the ticket transfer');
-                    $errors['transfer']=__('Correct the error(s) below and try again!');
-                }
-            }
-            break;
-        case 'assign':
-
-             if(!$role->hasPerm(TicketModel::PERM_ASSIGN))
-                 $errors['err']=$errors['assign'] = __('Action Denied. You are not allowed to assign/reassign tickets.');
-             else {
-
-                 $id = preg_replace("/[^0-9]/", "",$_POST['assignId']);
-                 $claim = (is_numeric($_POST['assignId']) && $_POST['assignId']==$thisstaff->getId());
-
-                 if(!$_POST['assignId'] || !$id)
-                     $errors['assignId'] = __('Select assignee');
-                 elseif($_POST['assignId'][0]!='s' && $_POST['assignId'][0]!='t' && !$claim)
-                     $errors['assignId']=__('Invalid assignee ID - get technical support');
-                 elseif($ticket->isAssigned()) {
-                     if($_POST['assignId'][0]=='s' && $id==$ticket->getStaffId())
-                         $errors['assignId']=__('Ticket already assigned to the agent.');
-                     elseif($_POST['assignId'][0]=='t' && $id==$ticket->getTeamId())
-                         $errors['assignId']=__('Ticket already assigned to the team.');
-                 }
-
-                 //Comments are not required on self-assignment (claim)
-                 if($claim && !$_POST['assign_comments'])
-                     $_POST['assign_comments'] = sprintf(__('Ticket claimed by %s'),$thisstaff->getName());
-                 elseif(!$_POST['assign_comments'])
-                     $errors['assign_comments'] = __('Assignment comments required');
-                 elseif(strlen($_POST['assign_comments'])<5)
-                         $errors['assign_comments'] = __('Comment too short');
-
-                 if(!$errors && $ticket->assign($_POST['assignId'], $_POST['assign_comments'], !$claim)) {
-                     if($claim) {
-                         $msg = __('Ticket is NOW assigned to you!');
-                     } else {
-                         $msg=sprintf(__('Ticket assigned successfully to %s'), $ticket->getAssigned());
-                         $ticket->releaseLock($thisstaff->getId());
-                         $ticket=null;
-                     }
-                 } elseif(!$errors['assign']) {
-                     $errors['err'] = __('Unable to complete the ticket assignment');
-                     $errors['assign'] = __('Correct the error(s) below and try again!');
-                 }
-             }
-            break;
         case 'postnote': /* Post Internal Note */
             $vars = $_POST;
             $attachments = $note_form->getField('attachments')->getClean();
             $vars['cannedattachments'] = array_merge(
                 $vars['cannedattachments'] ?: array(), $attachments);
 
-            if (!$lock) {
-                $errors['err'] = __('This action requires a lock. Please try again');
-            }
-            // Use locks to avoid double replies
-            elseif ($lock->getStaffId()!=$thisstaff->getId()) {
-                $errors['err'] = __('Action Denied. Ticket is locked by someone else!');
-            }
-            elseif ($lock->getCode() != $_POST['lockCode']) {
-                $errors['err'] = __('Your lock has expired. Please try again');
+            if ($cfg->getLockTime()) {
+                if (!$lock) {
+                    $errors['err'] = __('This action requires a lock. Please try again');
+                }
+                // Use locks to avoid double replies
+                elseif ($lock->getStaffId()!=$thisstaff->getId()) {
+                    $errors['err'] = __('Action Denied. Ticket is locked by someone else!');
+                }
+                elseif ($lock->getCode() != $_POST['lockCode']) {
+                    $errors['err'] = __('Your lock has expired. Please try again');
+                }
             }
 
             $wasOpen = ($ticket->isOpen());
@@ -218,6 +161,9 @@ if($_POST && !$errors):
                 // Clear attachment list
                 $note_form->setSource(array());
                 $note_form->getField('attachments')->reset();
+
+                // Remove staff's locks
+                $ticket->releaseLock($thisstaff->getId());
 
                 if($wasOpen && $ticket->isClosed())
                     $ticket = null; //Going back to main listing.
@@ -270,7 +216,7 @@ if($_POST && !$errors):
                         $errors['err'] = __('Only open tickets can be assigned');
                     } elseif($ticket->isAssigned()) {
                         $errors['err'] = sprintf(__('Ticket is already assigned to %s'),$ticket->getAssigned());
-                    } elseif($ticket->assignToStaff($thisstaff->getId(), (sprintf(__('Ticket claimed by %s'),$thisstaff->getName())), false)) {
+                    } elseif ($ticket->claim()) {
                         $msg = __('Ticket is now assigned to you!');
                     } else {
                         $errors['err'] = __('Problems assigning the ticket. Try again');
@@ -310,7 +256,7 @@ if($_POST && !$errors):
                     }
                     break;
                 case 'banemail':
-                    if (!$role->hasPerm(EmailModel::PERM_BANLIST)) {
+                    if (!$thisstaff->hasPerm(Email::PERM_BANLIST)) {
                         $errors['err']=__('Permission Denied. You are not allowed to ban emails');
                     } elseif(BanList::includes($ticket->getEmail())) {
                         $errors['err']=__('Email already in banlist');
@@ -321,7 +267,7 @@ if($_POST && !$errors):
                     }
                     break;
                 case 'unbanemail':
-                    if (!$role->hasPerm(EmailModel::PERM_BANLIST)) {
+                    if (!$thisstaff->hasPerm(Email::PERM_BANLIST)) {
                         $errors['err'] = __('Permission Denied. You are not allowed to remove emails from banlist.');
                     } elseif(Banlist::remove($ticket->getEmail())) {
                         $msg = __('Email removed from banlist');
@@ -350,15 +296,13 @@ if($_POST && !$errors):
         default:
             $errors['err']=__('Unknown action');
         endswitch;
-        if($ticket && is_object($ticket))
-            $ticket->reload();//Reload ticket info following post processing
     }elseif($_POST['a']) {
 
         switch($_POST['a']) {
             case 'open':
                 $ticket=null;
                 if (!$thisstaff ||
-                        !$thisstaff->hasPerm(TicketModel::PERM_CREATE)) {
+                        !$thisstaff->hasPerm(TicketModel::PERM_CREATE, false)) {
                      $errors['err'] = sprintf('%s %s',
                              sprintf(__('You do not have permission %s.'),
                                  __('to create tickets')),
@@ -448,26 +392,10 @@ if($stats['overdue']) {
         $sysnotice=sprintf(__('%d overdue tickets!'),$stats['overdue']);
 }
 
-if($thisstaff->showAssignedOnly() && $stats['closed']) {
-    $nav->addSubMenu(array('desc'=>__('My Closed Tickets').' ('.number_format($stats['closed']).')',
-                           'title'=>__('My Closed Tickets'),
-                           'href'=>'tickets.php?status=closed',
-                           'iconclass'=>'closedTickets'),
-                        ($_REQUEST['status']=='closed'));
-} else {
-
-    $nav->addSubMenu(array('desc' => __('Closed').' ('.number_format($stats['closed']).')',
-                           'title'=>__('Closed Tickets'),
-                           'href'=>'tickets.php?status=closed',
-                           'iconclass'=>'closedTickets'),
-                        ($_REQUEST['status']=='closed'));
-}
-
 if (isset($_SESSION['advsearch'])) {
     // XXX: De-duplicate and simplify this code
     $search = SavedSearch::create();
     $form = $search->getFormFromSession('advsearch');
-    $form->loadState($_SESSION['advsearch']);
     $tickets = TicketModel::objects();
     $tickets = $search->mangleQuerySet($tickets, $form);
     $count = $tickets->count();
@@ -478,7 +406,13 @@ if (isset($_SESSION['advsearch'])) {
                         (!$_REQUEST['status'] || $_REQUEST['status']=='search'));
 }
 
-if ($thisstaff->hasPerm(TicketModel::PERM_CREATE)) {
+$nav->addSubMenu(array('desc' => __('Closed'),
+                       'title'=>__('Closed Tickets'),
+                       'href'=>'tickets.php?status=closed',
+                       'iconclass'=>'closedTickets'),
+                    ($_REQUEST['status']=='closed'));
+
+if ($thisstaff->hasPerm(TicketModel::PERM_CREATE, false)) {
     $nav->addSubMenu(array('desc'=>__('New Ticket'),
                            'title'=> __('Open a New Ticket'),
                            'href'=>'tickets.php?a=open',
@@ -489,6 +423,7 @@ if ($thisstaff->hasPerm(TicketModel::PERM_CREATE)) {
 
 
 $ost->addExtraHeader('<script type="text/javascript" src="js/ticket.js"></script>');
+$ost->addExtraHeader('<script type="text/javascript" src="js/thread.js"></script>');
 $ost->addExtraHeader('<meta name="tip-namespace" content="tickets.queue" />',
     "$('#content').data('tipNamespace', 'tickets.queue');");
 
@@ -501,13 +436,16 @@ if($ticket) {
         $inc = 'ticket-edit.inc.php';
         if (!$forms) $forms=DynamicFormEntry::forTicket($ticket->getId());
         // Auto add new fields to the entries
-        foreach ($forms as $f) $f->addMissingFields();
+        foreach ($forms as $f) {
+            $f->filterFields(function($f) { return !$f->isStorable(); });
+            $f->addMissingFields();
+        }
     } elseif($_REQUEST['a'] == 'print' && !$ticket->pdfExport($_REQUEST['psize'], $_REQUEST['notes']))
         $errors['err'] = __('Internal error: Unable to export the ticket to PDF for print.');
 } else {
 	$inc = 'tickets.inc.php';
     if ($_REQUEST['a']=='open' &&
-            $thisstaff->hasPerm(TicketModel::PERM_CREATE))
+            $thisstaff->hasPerm(TicketModel::PERM_CREATE, false))
         $inc = 'ticket-open.inc.php';
     elseif($_REQUEST['a'] == 'export') {
         $ts = strftime('%Y%m%d');
@@ -522,10 +460,8 @@ if($ticket) {
         $nav->setActiveSubMenu(-1);
 
     //set refresh rate if the user has it configured
-    if(!$_POST && !$_REQUEST['a'] && ($min=$thisstaff->getRefreshRate())) {
-        $js = "clearTimeout(window.ticket_refresh);
-               window.ticket_refresh = setTimeout($.refreshTicketView,"
-            .($min*60000).");";
+    if(!$_POST && !$_REQUEST['a'] && ($min=(int)$thisstaff->getRefreshRate())) {
+        $js = "+function(){ var qq = setInterval(function() { if ($.refreshTicketView === undefined) return; clearInterval(qq); $.refreshTicketView({$min}*60000); }, 200); }();";
         $ost->addExtraHeader('<script type="text/javascript">'.$js.'</script>',
             $js);
     }

@@ -5,8 +5,6 @@
     ?>
     <tr><td colspan="2"><hr />
     <div class="form-header" style="margin-bottom:0.5em">
-    <?php print ($form instanceof DynamicFormEntry)
-        ? $form->getForm()->getMedia() : $form->getMedia(); ?>
     <h3><?php echo Format::htmlchars($form->getTitle()); ?></h3>
     <div><?php echo Format::display($form->getInstructions()); ?></div>
     </div>
@@ -16,11 +14,16 @@
     // 'private' are not included in the output for clients
     global $thisclient;
     foreach ($form->getFields() as $field) {
-        if (!$field->isVisibleToUsers() && !$field->isEditableToUsers())
+        if (isset($options['mode']) && $options['mode'] == 'create') {
+            if (!$field->isVisibleToUsers() && !$field->isRequiredForUsers())
+                continue;
+        }
+        elseif (!$field->isVisibleToUsers() && !$field->isEditableToUsers()) {
             continue;
+        }
         ?>
         <tr>
-            <td colspan="2" style="padding-top:8px;">
+            <td colspan="2" style="padding-top:10px;">
             <?php if (!$field->isBlockLevel()) { ?>
                 <label for="<?php echo $field->getFormName(); ?>"><span class="<?php
                     if ($field->isRequiredForUsers()) echo 'required'; ?>">

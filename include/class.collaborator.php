@@ -35,8 +35,10 @@ implements EmailContact, ITicketUser {
     );
 
     function __toString() {
-        return Format::htmlchars(sprintf('%s <%s>', $this->getName(),
-                $this->getEmail()));
+        return Format::htmlchars($this->toString());
+    }
+    function toString() {
+        return sprintf('%s <%s>', $this->getName(), $this->getEmail());
     }
 
     function getId() {
@@ -49,6 +51,10 @@ implements EmailContact, ITicketUser {
 
     function getCreateDate() {
         return $this->created;
+    }
+
+    function getThreadId() {
+        return $this->thread_id;
     }
 
     function getTicketId() {
@@ -108,6 +114,12 @@ implements EmailContact, ITicketUser {
         return $this->user_id;
     }
 
+    static function create($vars=false) {
+        $inst = parent::create($vars);
+        $inst->created = SqlFunction::NOW();
+        return $inst;
+    }
+
     function save($refetch=false) {
         if ($this->dirty)
             $this->updated = SqlFunction::NOW();
@@ -140,18 +152,5 @@ implements EmailContact, ITicketUser {
         return false;
     }
 
-    static function forThread($tid, $criteria=array()) {
-
-        $collaborators = static::objects()
-            ->filter(array('thread_id' => $tid));
-
-        if (isset($criteria['isactive']))
-            $collaborators->filter(array('isactive' => $criteria['isactive']));
-
-        // TODO: sort by name of the user
-        $collaborators->order_by('user__name');
-
-        return $collaborators;
-    }
 }
 ?>

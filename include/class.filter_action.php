@@ -138,7 +138,7 @@ abstract class TriggerAction {
             foreach ($options as $f) {
                 $f->set('id', $uid++);
             }
-            $this->_cform = new Form($options, $source);
+            $this->_cform = new SimpleForm($options, $source);
             if (!$source) {
                 foreach ($this->_cform->getFields() as $name=>$f) {
                     if ($config && isset($config[$name]))
@@ -188,11 +188,16 @@ class FA_UseReplyTo extends TriggerAction {
     static $name = /* @trans */ 'Use Reply-To Email';
 
     function apply(&$ticket, array $info) {
-        $config = $this->getConfiguration();
-        if ($config['enable'] && $info['reply-to']) {
+        if (!$info['reply-to'])
+            // Nothing to do
+            return;
+        $changed = $info['reply-to'] != $ticket['email']
+            || ($info['reply-to-name'] && $ticket['name'] != $info['reply-to-name']);
+        if ($changed) {
             $ticket['email'] = $info['reply-to'];
             if ($info['reply-to-name'])
                 $ticket['name'] = $info['reply-to-name'];
+            throw new FilterDataChanged($ticket);
         }
     }
 
@@ -277,8 +282,17 @@ class FA_RouteDepartment extends TriggerAction {
     function getConfigurationOptions() {
         return array(
             'dept_id' => new ChoiceField(array(
-                'configuration' => array('prompt' => __('Unchanged')),
-                'choices' => Dept::getDepartments(),
+                'configuration' => array(
+                    'prompt' => __('Unchanged'),
+                    'data' => array('quick-add' => 'department'),
+                ),
+                'choices' =>
+                    Dept::getDepartments() +
+                    array(':new:' => '— '.__('Add New').' —'),
+                'validators' => function($self, $clean) {
+                    if ($clean === ':new:')
+                        $self->addError(__('Select a department'));
+                }
             )),
         );
     }
@@ -292,7 +306,7 @@ class FA_AssignPriority extends TriggerAction {
     function apply(&$ticket, array $info) {
         $config = $this->getConfiguration();
         if ($config['priority'])
-            $ticket['priority_id'] = $config['priority']->getId();
+            $ticket['priorityId'] = $config['priority'];
     }
 
     function getConfigurationOptions() {
@@ -349,8 +363,17 @@ class FA_AssignTeam extends TriggerAction {
         $choices = Team::getTeams();
         return array(
             'team_id' => new ChoiceField(array(
-                'configuration' => array('prompt' => __('Unchanged')),
-                'choices' => $choices,
+                'configuration' => array(
+                    'prompt' => __('Unchanged'),
+                    'data' => array('quick-add' => 'team'),
+                ),
+                'choices' =>
+                    Team::getTeams() +
+                    array(':new:' => '— '.__('Add New').' —'),
+                'validators' => function($self, $clean) {
+                    if ($clean === ':new:')
+                        $self->addError(__('Select a team'));
+                }
             )),
         );
     }
@@ -390,7 +413,7 @@ class FA_AssignTopic extends TriggerAction {
     }
 
     function getConfigurationOptions() {
-        $choices = HelpTopic::getAllHelpTopics();
+        $choices = Topic::getHelpTopics(false, Topic::DISPLAY_DISABLED);
         return array(
             'topic_id' => new ChoiceField(array(
                 'configuration' => array('prompt' => __('Unchanged')),
@@ -413,7 +436,10 @@ class FA_SetStatus extends TriggerAction {
 
     function getConfigurationOptions() {
         $choices = array();
-        foreach (TicketStatusList::getStatuses() as $S) {
+        foreach (TicketStatusList::getStatuses(array(
+            'states' => array('open', 'closed')
+        ))
+        as $S) {
             // TODO: Move this to TicketStatus::getName
             $name = $S->getName();
             if (!($isenabled = $S->isEnabled()))
@@ -449,20 +475,47 @@ class FA_SendEmail extends TriggerAction {
         if (!$config['from'] || !($mailer = Email::lookup($config['from'])))
             $mailer = new Mailer();
 
-        // Honor %{user} variable
-        $to = $config['recipients'];
+        // Allow %{user} in the To: line
         $replacer = new VariableReplacer();
         $replacer->assign(array(
-            'user' => sprintf('%s <%s>', $ticket['name'], $ticket['email'])
+            'user' => sprintf('"%s" <%s>', $ticket['name'], $ticket['email'])
         ));
-        $to = $replacer->replaceVars($to);
+        $to = $replacer->replaceVars($config['recipients']);
 
-        $mailer->send($to, $info['subject'], $info['message']);
+        require_once PEAR_DIR . 'Mail/RFC822.php';
+        require_once PEAR_DIR . 'PEAR.php';
+
+        if (!($mails = Mail_RFC822::parseAddressList($to)) || PEAR::isError($mails))
+            return false;
+
+        // Allow %{recipient} in the body
+        foreach ($mails as $R) {
+            $recipient = sprintf('%s <%s@%s>', $R->personal, $R->mailbox, $R->host);
+            $replacer->assign(array(
+                'recipient' => new EmailAddress($recipient),
+            ));
+            $I = $replacer->replaceVars($info);
+            $mailer->send($recipient, $I['subject'], $I['message']);
+        }
+
+    }
+
+    static function getVarScope() {
+        $context = array(
+            'ticket' => array(
+                'class' => 'FA_SendEmail_TicketInfo', 'desc' => __('Ticket'),
+            ),
+            'user' => __('Ticket Submitter'),
+            'recipient' => array(
+                'class' => 'EmailAddress', 'desc' => __('Recipient'),
+            ),
+        ) + osTicket::getVarScope();
+        return VariableReplacer::compileScope($context);
     }
 
     function getConfigurationOptions() {
         $choices = array('' => __('Default System Email'));
-        $choices += EmailModel::getAddresses();
+        $choices += Email::getAddresses();
 
         return array(
             'recipients' => new TextboxField(array(
@@ -500,6 +553,7 @@ class FA_SendEmail extends TriggerAction {
                 'configuration' => array(
                     'placeholder' => __('Message'),
                     'html' => true,
+                    'context' => 'fa:send_email',
                 ),
             )),
             'from' => new ChoiceField(array(
@@ -511,3 +565,12 @@ class FA_SendEmail extends TriggerAction {
     }
 }
 FilterAction::register('FA_SendEmail', /* @trans */ 'Communication');
+
+class FA_SendEmail_TicketInfo {
+    static function getVarScope() {
+        return array(
+            'message' => __('Message from the EndUser'),
+            'source' => __('Source'),
+        );
+    }
+}

@@ -62,16 +62,28 @@ class Misc {
 
     /* misc date helpers...this will go away once we move to php 5 */
     function db2gmtime($var){
+        static $dbtz;
         global $cfg;
-        if(!$var) return;
 
-        $dbtime=is_int($var)?$var:strtotime($var);
-        return $dbtime-($cfg->getDBTZoffset()*3600);
+        if (!$var || !$cfg)
+            return;
+
+        if (!isset($dbtz))
+            $dbtz = new DateTimeZone($cfg->getDbTimezone());
+
+        $dbtime = is_int($var) ? $var : strtotime($var);
+        $D = DateTime::createFromFormat('U', $dbtime);
+        if (!$D)
+            // This happens e.g. from negative timestamps
+            return $var;
+
+        return $dbtime - $dbtz->getOffset($D);
     }
 
     //Take user time or gmtime and return db (mysql) time.
     function dbtime($var=null){
-         global $cfg;
+        static $dbtz;
+        global $cfg;
 
         if (is_null($var) || !$var) {
             // Default timezone is set to UTC
@@ -83,8 +95,12 @@ class Misc {
             $D = DateTime::createFromFormat('U', $time);
             $time -= $tz->getOffset($D);
         }
+        if (!isset($dbtz)) {
+            $dbtz = new DateTimeZone($cfg->getDbTimezone());
+        }
         // UTC to db time
-        return $time + ($cfg->getDBTZoffset()*3600);
+        $D = DateTime::createFromFormat('U', $time);
+        return $time + $dbtz->getOffset($D);
     }
 
     /*Helper get GM time based on timezone offset*/
@@ -144,7 +160,7 @@ class Misc {
             $min=0;
 
         ob_start();
-        echo sprintf('<select name="%s" id="%s">',$name,$name);
+        echo sprintf('<select name="%s" id="%s" style="display:inline-block;width:auto">',$name,$name);
         echo '<option value="" selected>'.__('Time').'</option>';
         for($i=23; $i>=0; $i--) {
             for($minute=45; $minute>=0; $minute-=15) {

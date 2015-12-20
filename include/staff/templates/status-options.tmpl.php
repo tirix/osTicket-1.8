@@ -14,7 +14,7 @@ $actions= array(
         );
 
 $states = array('open');
-if ($thisstaff->hasPerm(TicketModel::PERM_CLOSE)
+if ($thisstaff->getRole($ticket ? $ticket->getDeptId() : null)->hasPerm(TicketModel::PERM_CLOSE)
         && (!$ticket || !$ticket->getMissingRequiredFields()))
     $states = array_merge($states, array('closed'));
 
@@ -55,7 +55,7 @@ if (!$nextStatuses)
                             $status->getId()); ?>"
                 <?php
                 if (isset($actions[$status->getState()]['href']))
-                    echo sprintf('data-href="%s"',
+                    echo sprintf('data-redirect="%s"',
                             $actions[$status->getState()]['href']);
 
                 ?>

@@ -31,10 +31,8 @@
     task.reply,
     task.close,
     task.delete,
-    kb.premade,
-    kb.faq,
-    stats.agents,
-    emails.banlist]
+    canned.manage,
+    thread.edit]
 
 - id: 2
   flags: 1
@@ -55,10 +53,7 @@
     task.transfer,
     task.reply,
     task.close,
-    kb.premade,
-    kb.faq,
-    stats.agents,
-    emails.banlist]
+    canned.manage]
 
 - id: 3
   flags: 1
@@ -75,3 +70,9 @@
     task.assign,
     task.transfer,
     task.reply]
+
+- id: 4
+  flags: 1
+  name: View only
+  notes: Simple role with no permissions
+  permissions: []

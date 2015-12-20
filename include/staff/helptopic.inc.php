@@ -23,19 +23,16 @@ if($topic && $_REQUEST['a']!='add') {
 $info=Format::htmlchars(($errors && $_POST)?$_POST:$info);
 ?>
 
-<h2 style="font-weight: normal"><?php echo $title; ?>
-    &nbsp;<i class="help-tip icon-question-sign" href="#help_topic_information"></i>
-    </h2>
-<?php if ($topic) { ?>
-    <div class="big"><strong><?php echo $topic->getLocal('topic'); ?></strong></div>
+<h2><?php echo $title; ?>
+    <?php if (isset($info['topic'])) { ?><small>
+    — <?php echo $info['topic']; ?></small>
 <?php } ?>
+ <i class="help-tip icon-question-sign" href="#help_topic_information"></i></h2>
 
-<br/>
-
-<ul class="tabs" id="topic-tabs">
-    <li class="active"><a href="#info"><i class="icon-info-sign"></i> Help Topic Information</a></li>
-    <li><a href="#routing"><i class="icon-ticket"></i> New ticket options</a></li>
-    <li><a href="#forms"><i class="icon-paste"></i> Forms</a></li>
+<ul class="clean tabs" id="topic-tabs">
+    <li class="active"><a href="#info"><i class="icon-info-sign"></i> <?php echo __('Help Topic Information'); ?></a></li>
+    <li><a href="#routing"><i class="icon-ticket"></i> <?php echo __('New ticket options'); ?></a></li>
+    <li><a href="#forms"><i class="icon-paste"></i> <?php echo __('Forms'); ?></a></li>
 </ul>
 
 <form action="helptopics.php?<?php echo Http::build_query($qs); ?>" method="post" id="save">
@@ -54,7 +51,7 @@ $info=Format::htmlchars(($errors && $_POST)?$_POST:$info);
             </td>
             <td>
                 <input type="text" size="30" name="topic" value="<?php echo $info['topic']; ?>"
-                data-translate-tag="<?php echo $trans['name']; ?>"/>
+                autofocus data-translate-tag="<?php echo $trans['name']; ?>"/>
                 &nbsp;<span class="error">*&nbsp;<?php echo $errors['topic']; ?></span> <i class="help-tip icon-question-sign" href="#topic"></i>
             </td>
         </tr>
@@ -101,7 +98,7 @@ $info=Format::htmlchars(($errors && $_POST)?$_POST:$info);
     </table>
 
         <div style="padding:8px 3px;border-bottom: 2px dotted #ddd;">
-            <strong class="big"><?php echo __('Internal Notes');?></strong><br/>
+            <strong><?php echo __('Internal Notes');?>:</strong>
             <?php echo __("be liberal, they're internal.");?>
         </div>
 
@@ -122,14 +119,14 @@ $info=Format::htmlchars(($errors && $_POST)?$_POST:$info);
                 <?php echo __('Department'); ?>:
             </td>
             <td>
-                <select name="dept_id">
+                <select name="dept_id" data-quick-add="department">
                     <option value="0">&mdash; <?php echo __('System Default'); ?> &mdash;</option>
                     <?php
                     foreach (Dept::getDepartments() as $id=>$name) {
                         $selected=($info['dept_id'] && $id==$info['dept_id'])?'selected="selected"':'';
                         echo sprintf('<option value="%d" %s>%s</option>',$id,$selected,$name);
-                    }
-                    ?>
+                    } ?>
+                    <option value="0" data-quick-add>&mdash; <?php echo __('Add New');?> &mdash;</option>
                 </select>
                 &nbsp;<span class="error">&nbsp;<?php echo $errors['dept_id']; ?></span>
                 <i class="help-tip icon-question-sign" href="#department"></i>
@@ -286,7 +283,7 @@ $info=Format::htmlchars(($errors && $_POST)?$_POST:$info);
                 <?php echo __('Auto-assign To');?>:
             </td>
             <td>
-                <select name="assign">
+                <select name="assign" data-quick-add>
                     <option value="0">&mdash; <?php echo __('Unassigned'); ?> &mdash;</option>
                     <?php
                     if (($users=Staff::getStaffMembers())) {
@@ -302,19 +299,20 @@ $info=Format::htmlchars(($errors && $_POST)?$_POST:$info);
                         }
                         echo '</OPTGROUP>';
                     }
-                    if (($teams=Team::getTeams())) {
-                        echo sprintf('<OPTGROUP label="%s">',
-                                sprintf(__('Teams (%d)'), count($teams)));
+                    if ($teams = Team::getTeams()) { ?>
+                      <optgroup data-quick-add="team" label="<?php
+                        echo sprintf(__('Teams (%d)'), count($teams)); ?>"><?php
                         foreach ($teams as $id => $name) {
                             $k="t$id";
                             $selected = ($info['assign']==$k || $info['team_id']==$id) ? 'selected="selected"' : '';
                             ?>
                             <option value="<?php echo $k; ?>"<?php echo $selected; ?>><?php echo $name; ?></option>
                         <?php
-                        }
-                        echo '</OPTGROUP>';
-                    }
-                    ?>
+                        } ?>
+                        <option value="0" data-quick-add data-id-prefix="t">— <?php echo __('Add New Team'); ?> —</option>
+                      </optgroup>
+                    <?php
+                    } ?>
                 </select>
                 &nbsp;<span class="error">&nbsp;<?php echo $errors['assign']; ?></span>
                 <i class="help-tip icon-question-sign" href="#auto_assign_to"></i>
@@ -362,7 +360,7 @@ foreach ($forms as $F) {
                 <div><?php echo Format::display($F->getLocal('instructions')); ?></div>
             </td>
         </tr>
-        <tr>
+        <tr style="text-align:left">
             <th><?php echo __('Enable'); ?></th>
             <th><?php echo __('Label'); ?></th>
             <th><?php echo __('Type'); ?></th>
@@ -370,7 +368,7 @@ foreach ($forms as $F) {
             <th><?php echo __('Variable'); ?></th>
         </tr>
     <?php
-        foreach ($F->getFields() as $f) { ?>
+        foreach ($F->getDynamicFields() as $f) { ?>
         <tr>
             <td><input type="checkbox" name="fields[]" value="<?php
                 echo $f->get('id'); ?>" <?php
@@ -440,21 +438,20 @@ $(function() {
             }
         });
     });
-
+    $('table#topic-forms').sortable({
+      items: 'tbody',
+      handle: 'td.handle',
+      tolerance: 'pointer',
+      forcePlaceholderSize: true,
+      helper: function(e, ui) {
+        ui.children().each(function() {
+          $(this).children().each(function() {
+            $(this).width($(this).width());
+          });
+        });
+        ui=ui.clone().css({'background-color':'white', 'opacity':0.8});
+        return ui;
+      }
+    }).disableSelection();
 });
-$('table#topic-forms').sortable({
-  items: 'tbody',
-  handle: 'td.handle',
-  tolerance: 'pointer',
-  forcePlaceholderSize: true,
-  helper: function(e, ui) {
-    ui.children().each(function() {
-      $(this).children().each(function() {
-        $(this).width($(this).width());
-      });
-    });
-    ui=ui.clone().css({'background-color':'white', 'opacity':0.8});
-    return ui;
-  }
-}).disableSelection();
 </script>

@@ -1,11 +1,33 @@
-<div class="pull-left" style="width:700;padding-top:5px;">
- <h2><?php echo __('Roles'); ?></h2>
+<form action="roles.php" method="POST" name="roles">
+<div class="sticky bar">
+    <div class="content">
+        <div class="pull-left">
+            <h2><?php echo __('Roles'); ?></h2>
+        </div>
+        <div class="pull-right flush-right">
+            <a href="roles.php?a=add" class="green button action-button"><i class="icon-plus-sign"></i> <?php
+echo __('Add New Role'); ?></a>
+            <span class="action-button" data-dropdown="#action-dropdown-more">
+                <i class="icon-caret-down pull-right"></i>
+                <span ><i class="icon-cog"></i> <?php echo __('More');?></span>
+            </span>
+            <div id="action-dropdown-more" class="action-dropdown anchor-right">
+                <ul id="actions">
+                    <li><a class="confirm" data-name="enable" href="roles.php?a=enable">
+                        <i class="icon-ok-sign icon-fixed-width"></i>
+                        <?php echo __('Enable'); ?></a></li>
+                    <li><a class="confirm" data-name="disable" href="roles.php?a=disable">
+                        <i class="icon-ban-circle icon-fixed-width"></i>
+                        <?php echo __('Disable'); ?></a></li>
+                    <li class="danger"><a class="confirm" data-name="delete" href="roles.php?a=delete">
+                        <i class="icon-trash icon-fixed-width"></i>
+                        <?php echo __('Delete'); ?></a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="clear"></div>
+    </div>
 </div>
-<div class="pull-right flush-right" style="padding-top:5px;padding-right:5px;">
- <b><a href="roles.php?a=add" class="Icon list-add"><?php
- echo __('Add New Role'); ?></a></b></div>
-<div class="clear"></div>
-
 <?php
 $page = ($_GET['p'] && is_numeric($_GET['p'])) ? $_GET['p'] : 1;
 $count = Role::objects()->count();
@@ -13,20 +35,17 @@ $pageNav = new Pagenate($count, $page, PAGE_LIMIT);
 $pageNav->setURL('roles.php');
 $showing=$pageNav->showing().' '._N('role', 'roles', $count);
 
-?>
-<form action="roles.php" method="POST" name="roles">
-<?php csrf_token(); ?>
+csrf_token(); ?>
 <input type="hidden" name="do" value="mass_process" >
 <input type="hidden" id="action" name="a" value="" >
 <table class="list" border="0" cellspacing="1" cellpadding="0" width="940">
-    <caption><?php echo $showing; ?></caption>
     <thead>
         <tr>
-            <th width="7">&nbsp;</th>
-            <th><?php echo __('Name'); ?></th>
-            <th width="100"><?php echo __('Status'); ?></th>
-            <th width="200"><?php echo __('Created On') ?></th>
-            <th width="250"><?php echo __('Last Updated'); ?></th>
+            <th width="4%">&nbsp;</th>
+            <th width="53%"><?php echo __('Name'); ?></th>
+            <th width="8%"><?php echo __('Status'); ?></th>
+            <th width="15%"><?php echo __('Created On') ?></th>
+            <th width="20%"><?php echo __('Last Updated'); ?></th>
         </tr>
     </thead>
     <tbody>
@@ -38,7 +57,7 @@ $showing=$pageNav->showing().' '._N('role', 'roles', $count);
             if ($ids && in_array($id, $ids))
                 $sel = true; ?>
         <tr>
-            <td>
+            <td align="center">
                 <?php
                 if ($role->isDeleteable()) { ?>
                 <input width="7" type="checkbox" class="ckb" name="ids[]"
@@ -80,17 +99,6 @@ $showing=$pageNav->showing().' '._N('role', 'roles', $count);
 if ($count) //Show options..
     echo '<div>&nbsp;'.__('Page').':'.$pageNav->getPageLinks().'&nbsp;</div>';
 ?>
-
-<p class="centered" id="actions">
-    <input class="button" type="submit" name="enable" value="<?php echo
-    __('Enable'); ?>">
-    &nbsp;&nbsp;
-    <input class="button" type="submit" name="disable" value="<?php echo
-    __('Disable'); ?>">
-    &nbsp;&nbsp;
-    <input class="button" type="submit" name="delete" value="<?php echo
-    __('Delete'); ?>">
-</p>
 </form>
 
 <div style="display:none;" class="dialog" id="confirm-action">

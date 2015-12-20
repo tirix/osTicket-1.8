@@ -24,24 +24,27 @@ $info=Format::htmlchars(($errors && $_POST) ? array_merge($info,$_POST) : $info)
     <input type="hidden" name="do" value="<?php echo $action; ?>">
     <input type="hidden" name="a" value="<?php echo Format::htmlchars($_REQUEST['a']); ?>">
     <input type="hidden" name="id" value="<?php echo $info['id']; ?>">
-    <h2><?php echo __('Custom List'); ?>
-    <?php echo $list ? $list->getName() : 'Add new list'; ?></h2>
-
-<ul class="tabs" id="list-tabs">
-    <li class="active"><a href="#definition">
+    <h2><?php echo $title; ?>
+        <?php if (isset($info['name'])) { ?><small>
+        — <?php echo $info['name']; ?></small>
+        <?php } ?>
+    </h2>
+<ul class="clean tabs" id="list-tabs">
+    <li <?php if (!$list) echo 'class="active"'; ?>><a href="#definition">
         <i class="icon-plus"></i> <?php echo __('Definition'); ?></a></li>
-    <li><a href="#items">
-        <i class="icon-list"></i> <?php echo __('Items'); ?></a></li>
+<?php if ($list) { ?>
+    <li class="active"><a href="#items">
+        <i class="icon-list"></i> <?php echo sprintf(__('Items (%d)'), $list->getItems()->count()); ?></a></li>
+<?php } ?>
     <li><a href="#properties">
         <i class="icon-asterisk"></i> <?php echo __('Properties'); ?></a></li>
 </ul>
 <div id="list-tabs_container">
-<div id="definition" class="tab_content">
+<div id="definition" class="tab_content <?php if ($list) echo 'hidden'; ?>">
     <table class="form_table" width="940" border="0" cellspacing="0" cellpadding="2">
     <thead>
         <tr>
             <th colspan="2">
-                <h4><?php echo $title; ?></h4>
                 <em><?php echo __(
                 'Custom lists are used to provide drop-down lists for custom forms.'
                 ); ?>&nbsp;<i class="help-tip icon-question-sign" href="#custom_lists"></i></em>
@@ -57,7 +60,7 @@ $info=Format::htmlchars(($errors && $_POST) ? array_merge($info,$_POST) : $info)
                     echo $list->getName();
                 else {
                     echo sprintf('<input size="50" type="text" name="name"
-                            data-translate-tag="%s"
+                            data-translate-tag="%s" autofocus
                             value="%s"/> <span
                             class="error">*<br/>%s</span>',
                             $trans['name'], $info['name'], $errors['name']);
@@ -215,11 +218,15 @@ $info=Format::htmlchars(($errors && $_POST) ? array_merge($info,$_POST) : $info)
     </tbody>
 </table>
 </div>
-<div id="items" class="hidden tab_content">
+
+<?php if ($list) { ?>
+<div id="items" class="tab_content">
 <?php
     $pjax_container = '#items';
     include STAFFINC_DIR . 'templates/list-items.tmpl.php'; ?>
 </div>
+<?php } ?>
+
 <p class="centered">
     <input type="submit" name="submit" value="<?php echo $submit_text; ?>">
     <input type="reset"  name="reset"  value="<?php echo __('Reset'); ?>">
@@ -230,24 +237,24 @@ $info=Format::htmlchars(($errors && $_POST) ? array_merge($info,$_POST) : $info)
 
 <script type="text/javascript">
 $(function() {
-    $(document).on('click', 'a.field-config', function(e) {
+    $('#properties, #items').on('click', 'a.field-config', function(e) {
         e.preventDefault();
         var $id = $(this).attr('id');
         var url = 'ajax.php/'+$(this).attr('href').substr(1);
         $.dialog(url, [201], function (xhr, resp) {
           var json = $.parseJSON(resp);
           if (json && json.success) {
-            if (json.id && json.row) {
-              $('#list-item-' + json.id).replaceWith(json.row);
-            }
-            else {
-              $.pjax.reload('#pjax-container');
+            if (json.row) {
+              if (json.id)
+                $('#list-item-' + json.id).replaceWith(json.row);
+              else
+                $('#list-items').append(json.row);
             }
           }
         });
         return false;
     });
-    $(document).on('click', 'a.items-action', function(e) {
+    $('#items').on('click', 'a.items-action', function(e) {
         e.preventDefault();
         var ids = [];
         $('form#save :checkbox.mass:checked').each(function() {

@@ -11,6 +11,7 @@ class mysqli {
     function select_db() {}
     function set_charset() {}
     function autocommit() {}
+    function rollback() {}
 }
 
 class mysqli_stmt {
@@ -36,6 +37,7 @@ class mysqli_result {
 class ReflectionClass {
     function getMethods() {}
     function getConstants() {}
+    function newInstanceArgs() {}
 }
 
 class DomNode {
@@ -52,8 +54,10 @@ class DomElement {
 }
 
 class DomDocument {
+    function getElementsByTagName() {}
     function loadHTML() {}
     function loadXML() {}
+    function saveHTML() {}
 }
 
 class Exception {
@@ -105,6 +109,7 @@ class ZipArchive {
     function addFromString() {}
     function getFromIndex() {}
     function setCommentName() {}
+    function setExternalAttributesName() {}
 }
 
 class finfo {
@@ -122,6 +127,8 @@ class IntlBreakIterator {
 
 class SqlFunction {
     static function NOW() {}
+    static function COALESCE() {}
+    static function DATEDIFF() {}
 }
 
 class SqlExpression {
@@ -154,4 +161,23 @@ class ResourceBundle {
     function getLocales() {}
 }
 
+class NumberFormatter {
+    function getSymbol() {}
+}
+
+class Collator {
+    function setStrength() {}
+}
+
+class Aws_Route53_Client {
+    function changeResourceRecordSets() {}
+}
+
+class Memcache {
+    function addServer() {}
+    function pconnect() {}
+    function replace() {}
+    function set() {}
+    function get() {}
+}
 ?>

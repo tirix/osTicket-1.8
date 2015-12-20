@@ -3,7 +3,7 @@ if (!isset($info['title']))
     $info['title'] = Format::htmlchars($user->getName());
 
 if ($info['title']) { ?>
-<h3><?php echo $info['title']; ?></h3>
+<h3 class="drag-handle"><?php echo $info['title']; ?></h3>
 <b><a class="close" href="#"><i class="icon-remove-circle"></i></a></b>
 <hr>
 <?php
@@ -16,7 +16,9 @@ if ($info['error']) {
     echo sprintf('<p id="msg_notice">%s</p>', $info['msg']);
 } ?>
 <div id="user-profile" style="display:<?php echo $forms ? 'none' : 'block'; ?>;margin:5px;">
-    <i class="icon-user icon-4x pull-left icon-border"></i>
+    <div class="avatar pull-left" style="margin: 0 10px;">
+    <?php echo $user->getAvatar(); ?>
+    </div>
     <?php
     if ($ticket) { ?>
     <a class="action-button pull-right change-user" style="overflow:inherit"
@@ -50,15 +52,19 @@ if ($info['error']) {
 <div id="user_tabs_container">
 <div class="tab_content" id="info-tab">
 <div class="floating-options">
+<?php if ($thisstaff->hasPerm(User::PERM_EDIT)) { ?>
     <a href="<?php echo $info['useredit'] ?: '#'; ?>" id="edituser" class="action" title="<?php echo __('Edit'); ?>"><i class="icon-edit"></i></a>
+<?php }
+      if ($thisstaff->hasPerm(User::PERM_DIRECTORY)) { ?>
     <a href="users.php?id=<?php echo $user->getId(); ?>" title="<?php
         echo __('Manage User'); ?>" class="action"><i class="icon-share"></i></a>
+<?php } ?>
 </div>
     <table class="custom-info" width="100%">
 <?php foreach ($user->getDynamicData() as $entry) {
 ?>
     <tr><th colspan="2"><strong><?php
-         echo $entry->getForm()->get('title'); ?></strong></td></tr>
+         echo $entry->getTitle(); ?></strong></td></tr>
 <?php foreach ($entry->getAnswers() as $a) { ?>
     <tr><td style="width:30%;"><?php echo Format::htmlchars($a->getField()->get('label'));
          ?>:</td>
@@ -72,15 +78,17 @@ if ($info['error']) {
 
 <?php if ($org) { ?>
 <div class="hidden tab_content" id="org-tab">
+<?php if ($thisstaff->hasPerm(User::PERM_DIRECTORY)) { ?>
 <div class="floating-options">
     <a href="orgs.php?id=<?php echo $org->getId(); ?>" title="<?php
     echo __('Manage Organization'); ?>" class="action"><i class="icon-share"></i></a>
 </div>
+<?php } ?>
     <table class="custom-info" width="100%">
 <?php foreach ($org->getDynamicData() as $entry) {
 ?>
     <tr><th colspan="2"><strong><?php
-         echo $entry->getForm()->get('title'); ?></strong></td></tr>
+         echo $entry->getTitle(); ?></strong></td></tr>
 <?php foreach ($entry->getAnswers() as $a) { ?>
     <tr><td style="width:30%"><?php echo Format::htmlchars($a->getField()->get('label'));
          ?>:</td>

@@ -1,10 +1,15 @@
-<?php if (!isset($_SERVER['HTTP_X_PJAX'])) { ?>
+<?php
+header("Content-Type: text/html; charset=UTF-8");
+if (!isset($_SERVER['HTTP_X_PJAX'])) { ?>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html <?php
+<html<?php
 if (($lang = Internationalization::getCurrentLanguage())
         && ($info = Internationalization::getLanguageInfo($lang))
         && (@$info['direction'] == 'rtl'))
-    echo 'dir="rtl" class="rtl"';
+    echo ' dir="rtl" class="rtl"';
+if ($lang) {
+    echo ' lang="' . Internationalization::rfc1766($lang) . '"';
+}
 ?>>
 <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
@@ -18,18 +23,7 @@ if (($lang = Internationalization::getCurrentLanguage())
         .tip_shadow { display:block !important; }
     </style>
     <![endif]-->
-    <script type="text/javascript" src="<?php echo ROOT_PATH; ?>js/jquery-1.8.3.min.js"></script>
-    <script type="text/javascript" src="<?php echo ROOT_PATH; ?>js/jquery-ui-1.10.3.custom.min.js"></script>
-    <script type="text/javascript" src="./js/scp.js"></script>
-    <script type="text/javascript" src="<?php echo ROOT_PATH; ?>js/jquery.pjax.js"></script>
-    <script type="text/javascript" src="<?php echo ROOT_PATH; ?>js/filedrop.field.js"></script>
-    <script type="text/javascript" src="<?php echo ROOT_PATH; ?>js/chosen.jquery.min.js"></script>
-    <script type="text/javascript" src="./js/tips.js"></script>
-    <script type="text/javascript" src="<?php echo ROOT_PATH; ?>js/redactor.min.js"></script>
-    <script type="text/javascript" src="<?php echo ROOT_PATH; ?>js/redactor-osticket.js"></script>
-    <script type="text/javascript" src="<?php echo ROOT_PATH; ?>js/redactor-plugins.js"></script>
-    <script type="text/javascript" src="./js/bootstrap-typeahead.js"></script>
-    <script type="text/javascript" src="./js/jquery.translatable.js"></script>
+    <script type="text/javascript" src="<?php echo ROOT_PATH; ?>js/jquery-1.11.2.min.js"></script>
     <link rel="stylesheet" href="<?php echo ROOT_PATH ?>css/thread.css" media="all">
     <link rel="stylesheet" href="./css/scp.css" media="all">
     <link rel="stylesheet" href="<?php echo ROOT_PATH; ?>css/redactor.css" media="screen">
@@ -43,10 +37,9 @@ if (($lang = Internationalization::getCurrentLanguage())
     <link type="text/css" rel="stylesheet" href="./css/dropdown.css">
     <link type="text/css" rel="stylesheet" href="<?php echo ROOT_PATH; ?>css/loadingbar.css"/>
     <link type="text/css" rel="stylesheet" href="<?php echo ROOT_PATH; ?>css/flags.css">
-    <link type="text/css" rel="stylesheet" href="<?php echo ROOT_PATH; ?>css/chosen.min.css">
+    <link type="text/css" rel="stylesheet" href="<?php echo ROOT_PATH; ?>css/select2.min.css">
     <link type="text/css" rel="stylesheet" href="<?php echo ROOT_PATH; ?>css/rtl.css"/>
     <link type="text/css" rel="stylesheet" href="./css/translatable.css"/>
-    <script type="text/javascript" src="./js/jquery.dropdown.js"></script>
 
     <?php
     if($ost && ($headers=$ost->getExtraHeaders())) {
@@ -72,7 +65,7 @@ if (($lang = Internationalization::getCurrentLanguage())
             <?php }else{ ?>
             | <a href="index.php" class="no-pjax"><?php echo __('Agent Panel'); ?></a>
             <?php } ?>
-            | <a href="profile.php"><?php echo __('My Preferences'); ?></a>
+            | <a href="profile.php"><?php echo __('Profile'); ?></a>
             | <a href="logout.php?auth=<?php echo $ost->getLinkToken(); ?>" class="no-pjax"><?php echo __('Log Out'); ?></a>
         </p>
         <a href="index.php" class="no-pjax" id="logo">
@@ -107,4 +100,8 @@ if (($lang = Internationalization::getCurrentLanguage())
             <div id="msg_notice"><?php echo $msg; ?></div>
         <?php }elseif($warn) { ?>
             <div id="msg_warning"><?php echo $warn; ?></div>
-        <?php } ?>
+        <?php }
+        foreach (Messages::getMessages() as $M) { ?>
+            <div class="<?php echo strtolower($M->getLevel()); ?>-banner"><?php
+                echo (string) $M; ?></div>
+<?php   } ?>

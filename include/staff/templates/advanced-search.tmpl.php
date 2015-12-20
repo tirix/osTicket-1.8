@@ -1,8 +1,5 @@
-<?php
-  $ff_uid = FormField::$uid;
-?>
 <div id="advanced-search">
-<h3><?php echo __('Advanced Ticket Search');?></h3>
+<h3 class="drag-handle"><?php echo __('Advanced Ticket Search');?></h3>
 <a class="close" href=""><i class="icon-remove-circle"></i></a>
 <hr/>
 <form action="#tickets/search" method="post" name="search">
@@ -14,22 +11,74 @@ foreach ($form->errors(true) ?: array() as $message) {
     ?><div class="error-banner"><?php echo $message;?></div><?php
 }
 
-foreach ($form->getFields() as $name=>$field) { ?>
-    <fieldset id="field<?php echo $field->getWidget()->id;
-        ?>" <?php if (!$field->isVisible()) echo 'style="display:none;"'; ?>>
+$info = $search->getSearchFields($form);
+foreach (array_keys($info) as $F) {
+    ?><input type="hidden" name="fields[]" value="<?php echo $F; ?>"/><?php
+}
+$errors = !!$form->errors();
+$inbody = false;
+$first_field = true;
+foreach ($form->getFields() as $name=>$field) {
+    @list($name, $sub) = explode('+', $field->get('name'), 2);
+    if ($sub === 'search') {
+        if (!$first_field) {
+            echo '</div></div>';
+        }
+        echo '<div class="adv-search-field-container">';
+        $inbody = false;
+        $first_field = false;
+    }
+    elseif (!$first_field && !$inbody) {
+        echo sprintf('<div class="adv-search-field-body %s">',
+            !$errors && isset($info[$name]) && $info[$name]['active'] ? 'hidden' : '');
+        $inbody = true;
+    }
+?>
+    <fieldset id="field<?php echo $field->getWidget()->id; ?>" <?php
+        $class = array();
+        if (!$field->isVisible())
+            $class[] = "hidden";
+        if ($sub === 'method')
+            $class[] = "adv-search-method";
+        elseif ($sub === 'search')
+            $class[] = "adv-search-field";
+        elseif ($field->get('__searchval__'))
+            $class[] = "adv-search-val";
+        if ($class)
+            echo 'class="'.implode(' ', $class).'"';
+        ?>>
         <?php echo $field->render(); ?>
+        <?php if (!$errors && $sub === 'search' && isset($info[$name]) && $info[$name]['active']) { ?>
+            <span style="padding-left: 5px">
+            <a href="#"  data-name="<?php echo Format::htmlchars($name); ?>" onclick="javascript:
+    var $this = $(this),
+        name = $this.data('name'),
+        expanded = $this.data('expanded') || false;
+    $this.closest('.adv-search-field-container').find('.adv-search-field-body').slideDown('fast');
+    $this.find('span.faded').hide();
+    $this.find('i').removeClass('icon-caret-right').addClass('icon-caret-down');
+    return false;
+"><i class="icon-caret-right"></i>
+            <span class="faded"><?php echo $search->describeField($info[$name]); ?></span>
+            </a>
+            </span>
+        <?php } ?>
         <?php foreach ($field->errors() as $E) {
             ?><div class="error"><?php echo $E; ?></div><?php
         } ?>
     </fieldset>
-    <?php if ($name[0] == ':') { ?>
-    <input type="hidden" name="fields[]" value="<?php echo $name; ?>"/>
+    <?php if ($name[0] == ':' && substr($name, -7) == '+search') {
+        list($N,) = explode('+', $name, 2);
+?>
+    <input type="hidden" name="fields[]" value="<?php echo $N; ?>"/>
     <?php }
 }
+if (!$first_field)
+    echo '</div></div>';
 ?>
 <div id="extra-fields"></div>
 <hr/>
-<select id="search-add-new-field" name="new-field" style="max-width: 100%;">
+<select id="search-add-new-field" name="new-field" style="max-width: 300px;">
     <option value="">— <?php echo __('Add Other Field'); ?> —</option>
 <?php
 foreach ($matches as $name => $fields) { ?>
@@ -38,16 +87,17 @@ foreach ($matches as $name => $fields) { ?>
     foreach ($fields as $id => $desc) { ?>
         <option value="<?php echo $id; ?>" <?php
             if (isset($state[$id])) echo 'disabled="disabled"';
-        ?>><?php echo $desc; ?></option>
+        ?>><?php echo ($desc instanceof FormField ? $desc->getLocal('label') : $desc); ?></option>
 <?php } ?>
     </optgroup>
 <?php } ?>
 </select>
 
 </div>
-<div class="span6" style="border-left: 1px solid #888;">
+<div class="span6" style="border-left:1px solid #888;position:relative;padding-bottom:26px;">
 <div style="margin-bottom: 0.5em;"><b style="font-size: 110%;"><?php echo __('Saved Searches'); ?></b></div>
-<div id="saved-searches" class="accordian">
+<hr>
+<div id="saved-searches" class="accordian" style="max-height:200px;overflow-y:auto;">
 <?php foreach (SavedSearch::forStaff($thisstaff) as $S) { ?>
     <dt class="saved-search">
         <a href="#" class="load-search"><?php echo $S->title; ?>
@@ -56,12 +106,10 @@ foreach ($matches as $name => $fields) { ?>
     </dt>
     <dd>
         <span>
-            <button onclick="javascript:$(this).closest('form').attr({
-'method': 'get', 'action': '#tickets/search/<?php echo $S->id; ?>'});"><i class="icon-chevron-left"></i> Load</button>
-            <?php if ($thisstaff->isAdmin()) { ?>
-                <button><i class="icon-bullhorn"></i> <?php echo __('Publish'); ?></button>
-            <?php } ?>
-            <button onclick="javascript:
+            <button type="button" onclick="javascript:$(this).closest('form').attr({
+'method': 'get', 'action': '#tickets/search/<?php echo $S->id; ?>'}).trigger('submit');"><i class="icon-chevron-left"></i> <?php echo __('Load'); ?></button>
+            <button type="button" onclick="javascript:
+var that = this;
 $.ajax({
     url: 'ajax.php/tickets/search/<?php echo $S->id; ?>',
     type: 'POST',
@@ -70,14 +118,14 @@ $.ajax({
     success: function(json) {
       if (!json.id)
         return;
-      $('<dt>').effect('highlight');
+      $(that).closest('dd').effect('highlight');
     }
 });
 return false;
 "><i class="icon-save"></i> <?php echo __('Update'); ?></button>
         </span>
         <span class="pull-right">
-            <button title="<?php echo __('Delete'); ?>" onclick="javascript:
+            <button type="button" title="<?php echo __('Delete'); ?>" onclick="javascript:
     if (!confirm(__('You sure?'))) return false;
     var that = this;
     $.ajax({
@@ -96,13 +144,13 @@ return false;
     </dd>
 <?php } ?>
 </div>
-<div>
+<div style="position:absolute;bottom:0">
+<hr>
     <form method="post">
-    <fieldset>
-    <input name="title" type="text" size="30" placeholder="Enter a title for the search"/>
-    <span class="action-buttons">
-        <span class="action-button">
-            <a href="#tickets/search/create" onclick="javascript:
+    <div class="attached input">
+    <input name="title" type="text" size="27" placeholder="<?php
+        echo __('Enter a title for the search'); ?>"/>
+        <a class="attached button" href="#tickets/search/create" onclick="javascript:
 $.ajax({
     url: 'ajax.php/' + $(this).attr('href').substr(1),
     type: 'POST',
@@ -119,19 +167,7 @@ $.ajax({
     }
 });
 return false;
-"><i class="icon-save"></i> <?php echo __('Save'); ?></a>
-        </span>
-        <span class="action-button pull-right" data-dropdown="#save-dropdown-more">
-            <i class="icon-caret-down pull-right"></i>
-        </span>
-    </span>
-    </fieldset>
-    <div id="save-dropdown-more" class="action-dropdown anchor-right">
-      <ul>
-        <li><a href="#queue/create">
-            <i class="icon-list"></i> <?php echo __('Create Queue'); ?></a>
-        </li>
-      </ul>
+"><i class="icon-save"></i></a>
     </div>
 </div>
 </div>
@@ -142,11 +178,18 @@ return false;
     <div id="search-hint" class="pull-left">
     </div>
     <div class="buttons pull-right">
-        <button class="button" id="do_search"><i class="icon-search"></i> <?php echo __('Search'); ?></button>
+        <button class="button" type="submit" id="do_search"><i class="icon-search"></i>
+            <?php echo __('Search'); ?></button>
     </div>
 </div>
 
 </form>
+
+<style type="text/css">
+#advanced-search .span6 .select2 {
+  max-width: 300px !important;
+}
+</style>
 
 <script type="text/javascript">
 $(function() {
@@ -166,13 +209,11 @@ $(function() {
     });
   }, 200);
 
-  var ff_uid = <?php echo $ff_uid; ?>;
   $('#search-add-new-field').on('change', function() {
     var that=this;
     $.ajax({
       url: 'ajax.php/tickets/search/field/'+$(this).val(),
       type: 'get',
-      data: {ff_uid: ff_uid},
       dataType: 'json',
       success: function(json) {
         if (!json.success)

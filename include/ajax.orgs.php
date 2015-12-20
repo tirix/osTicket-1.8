@@ -54,6 +54,8 @@ class OrgsAjaxAPI extends AjaxController {
 
         if(!$thisstaff)
             Http::response(403, 'Login Required');
+        elseif (!$thisstaff->hasPerm(Organization::PERM_EDIT))
+            Http::response(403, 'Permission Denied');
         elseif(!($org = Organization::lookup($id)))
             Http::response(404, 'Unknown organization');
 
@@ -72,6 +74,8 @@ class OrgsAjaxAPI extends AjaxController {
 
         if(!$thisstaff)
             Http::response(403, 'Login Required');
+        elseif (!$thisstaff->hasPerm(Organization::PERM_EDIT))
+            Http::response(403, 'Permission Denied');
         elseif(!($org = Organization::lookup($id)))
             Http::response(404, 'Unknown organization');
 
@@ -97,6 +101,8 @@ class OrgsAjaxAPI extends AjaxController {
 
         if (!$thisstaff)
             Http::response(403, 'Login Required');
+        elseif (!$thisstaff->hasPerm(Organization::PERM_DELETE))
+            Http::response(403, 'Permission Denied');
         elseif (!($org = Organization::lookup($id)))
             Http::response(404, 'Unknown organization');
 
@@ -116,6 +122,8 @@ class OrgsAjaxAPI extends AjaxController {
 
         if (!$thisstaff)
             Http::response(403, 'Login Required');
+        elseif (!$thisstaff->hasPerm(User::PERM_EDIT))
+            Http::response(403, 'Permission Denied');
         elseif (!($org = Organization::lookup($id)))
             Http::response(404, 'Unknown organization');
 
@@ -137,7 +145,8 @@ class OrgsAjaxAPI extends AjaxController {
                             Format::htmlchars($user->getName()));
             } else { //Creating new  user
                 $form = UserForm::getUserForm()->getForm($_POST);
-                if (!($user = User::fromForm($form)))
+                $can_create = $thisstaff->hasPerm(User::PERM_CREATE);
+                if (!($user = User::fromForm($form, $can_create)))
                     $info['error'] = __('Error adding user - try again!');
             }
 
@@ -175,6 +184,8 @@ class OrgsAjaxAPI extends AjaxController {
 
         if (!$thisstaff)
             Http::response(403, 'Login Required');
+        elseif (!$thisstaff->hasPerm(Organization::PERM_CREATE))
+            Http::response(403, 'Permission Denied');
         elseif (!($org = Organization::lookup($org_id)))
             Http::response(404, 'No such organization');
 
@@ -198,6 +209,10 @@ class OrgsAjaxAPI extends AjaxController {
     }
 
     function addOrg() {
+        global $thisstaff;
+
+        if (!$thisstaff->hasPerm(Organization::PERM_CREATE))
+            Http::response(403, 'Permission Denied');
 
         $info = array();
 
@@ -212,11 +227,11 @@ class OrgsAjaxAPI extends AjaxController {
         $info['title'] = __('Add New Organization');
         $info['search'] = false;
 
-        return self::_lookupform($form, $info);
+        return $this->_lookupform($form, $info);
     }
 
     function lookup() {
-        return self::_lookupform();
+        return $this->_lookupform();
     }
 
     function selectOrg($id) {
@@ -242,10 +257,14 @@ class OrgsAjaxAPI extends AjaxController {
         return $ajax->createNote('O'.$id);
     }
 
-    static function _lookupform($form=null, $info=array()) {
+    function _lookupform($form=null, $info=array()) {
 
         if (!$info or !$info['title'])
             $info += array('title' => __('Organization Lookup'));
+
+        if ($_POST && ($org = Organization::lookup($_POST['orgid']))) {
+            Http::response(201, $org->to_json());
+        }
 
         ob_start();
         include(STAFFINC_DIR . 'templates/org-lookup.tmpl.php');
@@ -266,6 +285,8 @@ class OrgsAjaxAPI extends AjaxController {
 
         if (!$thisstaff)
             Http::response(403, "Login required");
+        elseif (!$thisstaff->hasPerm(Organization::PERM_EDIT))
+            Http::response(403, 'Permission Denied');
         elseif (!($org = Organization::lookup($org_id)))
             Http::response(404, "No such ticket");
         elseif (!isset($_POST['forms']))

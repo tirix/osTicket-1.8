@@ -39,26 +39,41 @@ $qs += array('sort' => $_REQUEST['sort'], 'order' => $_REQUEST['order']);
 $pageNav->setURL('departments.php', $qs);
 $showing = $pageNav->showing().' '._N('department', 'departments', $count);
 ?>
-<div class="pull-left" style="width:700px;padding-top:5px;">
- <h2><?php echo __('Departments');?></h2>
- </div>
-<div class="pull-right flush-right" style="padding-top:5px;padding-right:5px;">
-    <b><a href="departments.php?a=add" class="Icon newDepartment"><?php echo __('Add New Department');?></a></b></div>
-<div class="clear"></div>
 <form action="departments.php" method="POST" name="depts">
+<div class="sticky bar">
+    <div class="content">
+        <div class="pull-left">
+            <h2><?php echo __('Departments');?></h2>
+        </div>
+        <div class="pull-right flush-right">
+            <a href="departments.php?a=add" class="green button action-button"><i class="icon-plus-sign"></i> <?php echo __('Add New Department');?></a>
+            <span class="action-button" data-dropdown="#action-dropdown-more">
+                <i class="icon-caret-down pull-right"></i>
+                <span ><i class="icon-cog"></i> <?php echo __('More');?></span>
+            </span>
+            <div id="action-dropdown-more" class="action-dropdown anchor-right">
+                <ul id="actions">
+                    <li class="danger"><a class="confirm" data-name="delete" href="departments.php?a=delete">
+                        <i class="icon-trash icon-fixed-width"></i>
+                        <?php echo __('Delete'); ?></a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="clear"></div>
+    </div>
+</div>
  <?php csrf_token(); ?>
  <input type="hidden" name="do" value="mass_process" >
  <input type="hidden" id="action" name="a" value="" >
  <table class="list" border="0" cellspacing="1" cellpadding="0" width="940">
-    <caption><?php echo $showing; ?></caption>
     <thead>
         <tr>
-            <th width="7px">&nbsp;</th>
-            <th width="200"><a <?php echo $name_sort; ?> href="departments.php?<?php echo $qstr; ?>&sort=name"><?php echo __('Name');?></a></th>
-            <th width="80"><a  <?php echo $type_sort; ?> href="departments.php?<?php echo $qstr; ?>&sort=type"><?php echo __('Type');?></a></th>
-            <th width="70"><a  <?php echo $members_sort; ?>href="departments.php?<?php echo $qstr; ?>&sort=members"><?php echo __('Members');?></a></th>
-            <th width="300"><a  <?php echo $email_sort; ?> href="departments.php?<?php echo $qstr; ?>&sort=email"><?php echo __('Email Address');?></a></th>
-            <th width="180"><a  <?php echo $manager_sort; ?> href="departments.php?<?php echo $qstr; ?>&sort=manager"><?php echo __('Manager');?></a></th>
+            <th width="4%">&nbsp;</th>
+            <th width="28%"><a <?php echo $name_sort; ?> href="departments.php?<?php echo $qstr; ?>&sort=name"><?php echo __('Name');?></a></th>
+            <th width="8%"><a  <?php echo $type_sort; ?> href="departments.php?<?php echo $qstr; ?>&sort=type"><?php echo __('Type');?></a></th>
+            <th width="8%"><a  <?php echo $users_sort; ?>href="departments.php?<?php echo $qstr; ?>&sort=users"><?php echo __('Agents');?></a></th>
+            <th width="30%"><a  <?php echo $email_sort; ?> href="departments.php?<?php echo $qstr; ?>&sort=email"><?php echo __('Email Address');?></a></th>
+            <th width="22%"><a  <?php echo $manager_sort; ?> href="departments.php?<?php echo $qstr; ?>&sort=manager"><?php echo __('Manager');?></a></th>
         </tr>
     </thead>
     <tbody>
@@ -75,7 +90,7 @@ $showing = $pageNav->showing().' '._N('department', 'departments', $count);
                 ->limit($pageNav->getLimit())
                 ->offset($pageNav->getStart());
             $defaultId=$cfg->getDefaultDeptId();
-            $defaultEmailId = $cfg->getDefaultEmail()->getId();
+            $defaultEmailId = $cfg->getDefaultEmailId();
             $defaultEmailAddress = (string) $cfg->getDefaultEmail();
             foreach ($depts as $dept) {
                 $id = $dept->getId();
@@ -94,7 +109,7 @@ $showing = $pageNav->showing().' '._N('department', 'departments', $count);
                 $default= ($defaultId == $dept->getId()) ?' <small>'.__('(Default)').'</small>' : '';
                 ?>
             <tr id="<?php echo $id; ?>">
-                <td width=7px>
+                <td align="center">
                   <input type="checkbox" class="ckb" name="ids[]"
                   value="<?php echo $id; ?>"
                   <?php echo $sel? 'checked="checked"' : ''; ?>
@@ -136,14 +151,9 @@ $showing = $pageNav->showing().' '._N('department', 'departments', $count);
     </tfoot>
 </table>
 <?php
-if ($count): //Show options..
+if ($count):
     echo '<div>&nbsp;'.__('Page').':'.$pageNav->getPageLinks().'&nbsp;</div>';
-    ?>
-    <p class="centered" id="actions">
-        <input class="button" type="submit" name="delete" value="<?php echo
-        __('Delete');
-        ?>" >
-    </p>
+?>
 <?php
 endif;
 ?>
@@ -153,11 +163,11 @@ endif;
     <a class="close" href=""><i class="icon-remove-circle"></i></a>
     <hr/>
     <p class="confirm-action" style="display:none;" id="make_public-confirm">
-        <?php echo sprintf(__('Are you sure want to make %s <b>public</b>?'),
+        <?php echo sprintf(__('Are you sure you want to make %s <b>public</b>?'),
             _N('selected department', 'selected departments', 2));?>
     </p>
     <p class="confirm-action" style="display:none;" id="make_private-confirm">
-        <?php echo sprintf(__('Are you sure want to make %s <b>private</b> (internal)?'),
+        <?php echo sprintf(__('Are you sure you want to make %s <b>private</b> (internal)?'),
             _N('selected department', 'selected departments', 2));?>
     </p>
     <p class="confirm-action" style="display:none;" id="delete-confirm">

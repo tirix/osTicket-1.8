@@ -35,7 +35,7 @@ if($_REQUEST['id']) {
 if (!$ticket && $thisclient->isGuest())
     Http::redirect('view.php');
 
-$tform = TicketForm::objects()->one();
+$tform = TicketForm::objects()->one()->getForm();
 $messageField = $tform->getField('message');
 $attachments = $messageField->getWidget()->getAttachments();
 
@@ -49,18 +49,22 @@ if ($_POST && is_object($ticket) && $ticket->getId()) {
             $errors['err']=__('Access Denied. Possibly invalid ticket ID');
         else {
             $forms=DynamicFormEntry::forTicket($ticket->getId());
+            $changes = array();
             foreach ($forms as $form) {
+                $form->filterFields(function($f) { return !$f->isStorable(); });
                 $form->setSource($_POST);
                 if (!$form->isValid())
                     $errors = array_merge($errors, $form->errors());
             }
         }
         if (!$errors) {
-            foreach ($forms as $f) $f->save();
+            foreach ($forms as $f) {
+                $changes += $f->getChanges();
+                $f->save();
+            }
+            if ($changes)
+                $ticket->logEvent('edited', array('fields' => $changes));
             $_REQUEST['a'] = null; //Clear edit action - going back to view.
-            $ticket->logNote(__('Ticket details updated'), sprintf(
-                __('Ticket details were updated by client %s &lt;%s&gt;'),
-                $thisclient->getFirstName()." ".$thisclient->getName(), $thisclient->getEmail()));
         }
         break;
     case 'reply':
@@ -88,7 +92,7 @@ if ($_POST && is_object($ticket) && $ticket->getId()) {
                 Draft::deleteForNamespace('ticket.client.' . $ticket->getId());
                 // Drop attachments
                 $attachments->reset();
-                $tform->setSource(array());
+                $attachments->getForm()->setSource(array());
             } else {
                 $errors['err']=__('Unable to post the message. Try again');
             }
@@ -100,7 +104,6 @@ if ($_POST && is_object($ticket) && $ticket->getId()) {
     default:
         $errors['err']=__('Unknown action');
     }
-    $ticket->reload();
 }
 elseif (is_object($ticket) && $ticket->getId()) {
     switch(strtolower($_REQUEST['a'])) {
@@ -118,7 +121,10 @@ if($ticket && $ticket->checkUserAccess($thisclient)) {
         $inc = 'edit.inc.php';
         if (!$forms) $forms=DynamicFormEntry::forTicket($ticket->getId());
         // Auto add new fields to the entries
-        foreach ($forms as $f) $f->addMissingFields();
+        foreach ($forms as $f) {
+            $f->filterFields(function($f) { return !$f->isStorable(); });
+            $f->addMissingFields();
+        }
     }
     else
         $inc='view.inc.php';
