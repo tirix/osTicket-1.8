@@ -131,7 +131,8 @@ class PropertyDisplayField extends FormField {
 				'dfield' => array(	/* @trans */ "Property Display", "PropertyDisplayField", 1),
             	'sinfo' => array(   /* @trans */ 'Information++', 'SuperTextField', 2),
 				'cinput' => array(   /* @trans */ 'Code Input', 'CodeInputField', 3),
-			);
+				'lang' => array(   /* @trans */ 'Language', 'LanguageField', 4),
+		);
 	}
 }
 
@@ -172,6 +173,17 @@ class PropertyDisplayWidget extends Widget {
         </script>
         <?php 
 	    //echo "<pre>".print_r($this->field->getContents())."</pre>";
+    }
+}
+
+class LanguageField extends ChoiceField {
+	static $widget = 'LanguageChoicesWidget';
+}
+
+class LanguageChoicesWidget extends ChoicesWidget {
+    function render($options=array()) {
+		$this->field->set('default', substr($_GET['lang'],0,2));
+		return parent::render($options);
     }
 }
 
@@ -305,7 +317,7 @@ class FA_ForwardToAsmodee extends TriggerAction {
 	
 	static function fillInAsmodeeFieldsFrench(Ticket $ticket) {
 		$details = 'Bonjour,\r\n'
-			.'Ce ticket cree via le service SAV Matagot concerne le jeu '.$ticket->getVar('game')->toString().', gere par le SAV Asmodee.\r\n' // Ž
+			.'Ce ticket cree via le service SAV Matagot concerne le jeu '.$ticket->getVar('game')->toString().', gere par le SAV Asmodee.\r\n' // ï¿½
 			.'Pour reference, son identifiant dans le service SAV Matagot est '.$ticket->getNumber().'\r\n'
 			.'Il concerne:\r\n';
 		$issueTypeToAsmodee = FA_ForwardToAsmodee::getAsmodeeIssueType($ticket->getVar('issue1'));
