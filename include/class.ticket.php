@@ -2792,6 +2792,7 @@ implements RestrictedAccess, Threadable {
         $id = $staff->getId();
         foreach ($blocks as $S) {
             if($S['status__state'] == 'closed') {
+                $stats['closed'] += $S['count'];
             	if ($S['staff_id'] == $id || ($S['team_id'] && $S['staff_id'] == 0))
                 	$stats['myclosed'] += $S['count'];
             }

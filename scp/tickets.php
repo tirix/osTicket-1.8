@@ -392,6 +392,22 @@ if($stats['overdue']) {
         $sysnotice=sprintf(__('%d overdue tickets!'),$stats['overdue']);
 }
 
+if($stats['overdue']) {
+    $nav->addSubMenu(array('desc'=>__('My Overdue').' ('.number_format($stats['myoverdue']).')',
+                           'title'=>__('My Stale Tickets'),
+                           'href'=>'tickets.php?status=myoverdue',
+                           'iconclass'=>'overdueTickets'),
+                        ($_REQUEST['status']=='overdue'));
+}
+
+if($stats['myclosed']) {
+    $nav->addSubMenu(array('desc'=>__('My Closed Tickets').' ('.number_format($stats['myclosed']).')',
+                           'title'=>__('My Closed Tickets'),
+                           'href'=>'tickets.php?status=closed',
+                           'iconclass'=>'closedTickets'),
+                        ($_REQUEST['status']=='closed'));
+}
+
 if (isset($_SESSION['advsearch'])) {
     // XXX: De-duplicate and simplify this code
     $search = SavedSearch::create();
@@ -406,7 +422,7 @@ if (isset($_SESSION['advsearch'])) {
                         (!$_REQUEST['status'] || $_REQUEST['status']=='search'));
 }
 
-$nav->addSubMenu(array('desc' => __('Closed'),
+$nav->addSubMenu(array('desc' => __('Closed').' ('.number_format($stats['closed']).')',
                        'title'=>__('Closed Tickets'),
                        'href'=>'tickets.php?status=closed',
                        'iconclass'=>'closedTickets'),
