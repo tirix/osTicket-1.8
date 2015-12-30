@@ -1493,6 +1493,10 @@ class OsticketConfig extends Config {
             'send_sys_errors'=>isset($vars['send_sys_errors'])?1:0,
             'send_sql_errors'=>isset($vars['send_sql_errors'])?1:0,
             'send_login_errors'=>isset($vars['send_login_errors'])?1:0,
+        	// Matagot weekly report
+        	'weekly_reports_active'=>$vars['weekly_reports_active'],
+        	'weekly_reports_dept_id'=>$vars['weekly_reports_dept_id'],
+        		
         ));
     }
 

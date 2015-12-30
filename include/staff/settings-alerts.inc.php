@@ -219,5 +219,32 @@
                 <?php echo __('Excessive failed login attempts'); ?>
             </td>
         </tr>
+		
+		<!-- Matagot Weekly Reports -->
+        <tr><th>
+            <em><b><?php echo __('Matagot Weekly Reports'); ?></b>: </em></th></tr>
+        <tr>
+            <td><em><b><?php echo __('Status'); ?>:</b></em> &nbsp;
+              <input type="radio" name="weekly_reports_active"  value="1"
+                <?php echo $config['weekly_reports_active']?'checked':''; ?> /> <?php echo __('Enable'); ?>
+              <input type="radio" name="weekly_reports_active"  value="0"
+                <?php echo !$config['weekly_reports_active']?'checked':''; ?> /> <?php echo __('Disable'); ?>
+              &nbsp;&nbsp;<font class="error">&nbsp;<?php echo $errors['weekly_reports_active']; ?></font>
+            </td>
+        </tr>
+        <tr>
+            <td>
+            <?php echo __('Departement')." : "; ?>
+            <select name="weekly_reports_dept_id">
+              <option value="0">&mdash; <?php echo __('Select Department');?> &mdash;</option>
+              <?php
+				$depts = Dept::getDepartments();
+				foreach ($depts as $id=>$name) {
+                	echo sprintf('<option value="%d" %s>%s</option>',$id,$id==$config['weekly_reports_dept_id']?"selected":"",Format::htmlchars($name));
+              	}
+              ?>
+            </select>
+            </td>
+        </tr>
     </tbody>
 </table>
