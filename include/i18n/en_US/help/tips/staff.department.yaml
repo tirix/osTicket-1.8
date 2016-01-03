@@ -60,6 +60,18 @@ manager:
       - title: Manage Alerts &amp; Notices
         href: /scp/settings.php?t=alerts
 
+workhours:
+    title: Working Hours
+    content: >
+        Select working hours for this departement.
+        <br/><br/>
+        Highlight the cells corresponding to the time when the departement is opened and responding tickets.
+        You can then set your SLA to take only department working hours into account.
+        You can quickly select several ranges by holding the Ctrl key and dragging a rectangle over the schedule you want to affect.
+    links:
+      - title: Manage SLA Plans
+        href: /scp/slas.php
+
 group_membership:
     title: Alerts &amp; Notices Recipients
     content: >

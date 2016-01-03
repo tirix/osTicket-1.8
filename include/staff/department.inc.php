@@ -152,6 +152,27 @@ $info = Format::htmlchars(($errors && $_POST) ? $_POST : $info);
         </tr>
         <tr>
             <th colspan="2">
+                <em><strong><?php echo __('Working Hours'); ?></strong>:</em>
+            </th>
+        </tr>
+		<tr>
+			<td>
+                <?php echo __('Hours of Operation:'); ?>
+            </td>
+            <td>
+                <label>
+	                <input type="checkbox" id="24_7" name="24_7">
+	                <?php echo __('This department works 24/7'); ?>
+                </label>
+                &nbsp;<i class="help-tip icon-question-sign" href="#workhours"></i>
+                <table id="workhours" class="list" cellspacing="1" cellpadding="0" width ="740px" >
+                </table>
+                <input type="hidden" id="workhours_bitmap" name="workhours" value="<?php echo $info['workhours']; ?>" />
+                &nbsp;<span class="error">&nbsp;<?php echo $errors['workhours']; ?></span>
+            </td>
+        </tr>
+        <tr>
+            <th colspan="2">
                 <em><strong><?php echo __('Outgoing Email Settings'); ?></strong>:</em>
             </th>
         </tr>

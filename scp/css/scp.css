@@ -2895,6 +2895,11 @@ a.attachment {
     margin-bottom: 0.3em;
 }
 
+#workhours th { border: 0px; font-size: 12px; text-align: center; }
+#workhours .ui-selecting { background: #789EC1; }
+#workhours .ui-selected { background: #385E81; }
+
+
 /* FIXME: Drop this with select2 4.0.1
  * Fixes a rendering issue on Safari
  */

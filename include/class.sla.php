@@ -25,7 +25,10 @@ implements TemplateVariable {
     const FLAG_ESCALATE     = 0x0002;
     const FLAG_NOALERTS     = 0x0004;
     const FLAG_TRANSIENT    = 0x0008;
-
+    const FLAG_REVOLVING    = 0x0010;
+    const FLAG_IGN_ANSWERED = 0x0020;
+    const FLAG_OPEN_HOURS   = 0x0040;
+    
     var $_config;
 
     function getId() {
@@ -46,6 +49,9 @@ implements TemplateVariable {
         $base['disable_overdue_alerts'] = $this->flags & self::FLAG_NOALERTS;
         $base['enable_priority_escalation'] = $this->flags & self::FLAG_ESCALATE;
         $base['transient'] = $this->flags & self::FLAG_TRANSIENT;
+        $base['revolving'] = $this->flags & self::FLAG_REVOLVING;
+        $base['ignore_answered'] = $this->flags & self::FLAG_IGN_ANSWERED;
+        $base['open_hours_only'] = $this->flags & self::FLAG_OPEN_HOURS;
         return $base;
     }
 
@@ -61,6 +67,18 @@ implements TemplateVariable {
         return $this->flags & self::FLAG_ACTIVE;
     }
 
+    function ignores_answered() {
+    	return $this->flags & self::FLAG_IGN_ANSWERED;
+    }
+    
+    function openHoursOnly() {
+    	return $this->flags & self::FLAG_OPEN_HOURS;
+    }
+    
+    function isRevolving() {
+    	return $this->flags & self::FLAG_REVOLVING;
+    }
+    
     function isTransient() {
         return $this->flags & self::FLAG_TRANSIENT;
     }
@@ -77,6 +95,27 @@ implements TemplateVariable {
         return $this->flags && self::FLAG_ESCALATE;
     }
 
+	/**
+	 * Returns the Due date for a given ticket
+	 */
+    function getDueDate($ticket) {
+    	$dt = new DateTime($ticket->getCreateDate());
+    	if($this->isRevolving()) $dt = new DateTime($ticket->getLastResponseDate());
+
+    	$dept = $ticket->getDept();
+    	 
+    	// if SLA counts "calendar" hours, simply add the grace period
+    	if(!$this->openHoursOnly() || !$dept 
+    			|| !$dept->getWorkingTime() || $dept->getWorkingTime()->is24_7()) {
+	    	return $dt
+	    	->add(new DateInterval('PT' . $this->getGracePeriod() . 'H'))
+	    	->format('Y-m-d H:i:s');
+    	} else {
+    		return $dept->getWorkingTime()->addWithinWorkingHours($dt, $this->getGracePeriod())
+	    	->format('Y-m-d H:i:s');
+    	}
+    }
+    
     function getTranslateTag($subtag) {
         return _H(sprintf('sla.%s.%s', $subtag, $this->getId()));
     }
@@ -127,8 +166,12 @@ implements TemplateVariable {
               ($vars['isactive'] ? self::FLAG_ACTIVE : 0)
             | (isset($vars['disable_overdue_alerts']) ? self::FLAG_NOALERTS : 0)
             | (isset($vars['enable_priority_escalation']) ? self::FLAG_ESCALATE : 0)
-            | (isset($vars['transient']) ? self::FLAG_TRANSIENT : 0);
-
+            | (isset($vars['transient']) ? self::FLAG_TRANSIENT : 0)
+            | (isset($vars['revolving']) ? self::FLAG_REVOLVING : 0)
+            | (isset($vars['ignore_answered']) ? self::FLAG_IGN_ANSWERED : 0)
+            | (isset($vars['open_hours_only']) ? self::FLAG_OPEN_HOURS : 0)
+            ;
+            
         if ($this->save())
             return true;
 

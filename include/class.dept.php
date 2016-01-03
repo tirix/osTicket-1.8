@@ -53,6 +53,7 @@ implements TemplateVariable {
     var $_members;
     var $_groupids;
     var $config;
+    var $_workingtime;
 
     var $template;
     var $autorespEmail;
@@ -337,6 +338,12 @@ implements TemplateVariable {
         return $this->getHashtable();
     }
 
+    function getWorkingTime() {
+        if (!isset($this->_workingtime))
+            $this->_workingtime = new WorkingTime($this->get('workhours'));
+        return $this->_workingtime;
+    }
+
     function delete() {
         global $cfg;
 
@@ -576,6 +583,14 @@ implements TemplateVariable {
         }
         $this->updateAccess($access, $errors);
 
+        if(isset($vars['workhours'])) {
+        	$workingtime = new WorkingTime($vars['workhours']);
+        	if($workingtime->isValid($errors)) {
+	        	$this->_workingtime = $workingtime;
+	        	$this->workhours = $vars['workhours'];
+        	}
+        }
+        
         if ($errors)
             return false;
 
@@ -702,3 +717,97 @@ extends Form {
         return parent::render($staff, false, array('template' => 'dynamic-form-simple.tmpl.php'));
     }
 }
+
+class WorkingTime {
+	var $workhours_str;
+	var $bitmap; // Binary encoded work hours, one hour per bit, one value per day
+	var $day_hours;
+	var $hours_until;
+	var $is24_7;
+	
+	function __construct($workhours_str) {
+		$this->workhours_str = $workhours_str;
+		$this->bitmap = json_decode($workhours_str);
+		$this->day_hours = array();
+		$this->hours_until = array();
+		
+		foreach($this->bitmap as $day_bm) {
+			$this->day_hours[] = $this->bitcount($day_bm);
+			$h_until = array(0);
+			for($h = 0; $h < 24; $h++) 
+				$h_until[] = $this->bitcount($day_bm & ((1 << ($h+1)) - 1));
+			$this->hours_until[] = $h_until;
+		}
+	}
+	
+	function bitcount($bitmap) {
+		return strlen(ereg_replace("0","",decbin($bitmap)));
+	}
+	
+	function asVar() {
+		return $this->__toString();
+	}
+	
+	function isValid(&$errors) {
+		if(!$this->bitmap) return false;
+		foreach($this->bitmap as $day_bm) {
+			if($day_bm != 0) return true;
+		}
+		return false;
+	}
+	
+	function is24_7() {
+		if(!isset($this->is24_7)) {
+			$this->is24_7 = true;
+			foreach($this->bitmap as $day_bm) {
+				$this->is24_7 &= $day_bm == (1 << 24) - 1;
+			}
+		}
+		return $this->is24_7;
+	}
+	
+	function isWorking($datetime) {
+		$day = $datetime->format('N') - 1; // 0 for Monday
+		$hour = $datetime->format('H'); // 0-23
+		return ($this->bitmap[$day] & (1 << $hour)) != 0;
+	}
+	
+    function addWithinWorkingHours($datetime, $hours) {
+    	if(!$this->isWorking($datetime))
+    		$datetime = $datetime->modify(
+    			$datetime->format("i")." min "
+    			.$datetime->format("s")." sec ago"); 
+    	if($datetime->format("i") == 0 && $datetime->format("s") == 0) 
+    		$hours++;
+    	do 
+    		$datetime = $this->addOneDayWorkingHours($datetime, $hours); 
+    	while($hours >0);
+    	return $datetime;
+    }
+   
+	function addOneDayWorkingHours($datetime, &$hours) {
+		$day = $datetime->format('N') - 1; // 0 for Monday
+		$hour = $datetime->format('H'); // 0-23
+		$workhours = $this->day_hours[$day] - $this->hours_until[$day][$hour + 1];
+
+		if($hours > $workhours) {
+			$hoursToAdd = 24 - $hour;
+			$hours -= $workhours;
+		} else {
+			$hoursToAdd = 0;
+			while($hoursToAdd < 24 - $hour && $hours > $workhours) {
+				$hoursToAdd++;
+				$workhours = $this->hours_until[$day][$hour + 1 + $hoursToAdd]
+					- $this->hours_until[$day][$hour + 1];
+			}
+			$hours = 0;
+		}
+		$datetime = $datetime->add(new DateInterval("PT${hoursToAdd}H"));
+		return $datetime;
+	}
+
+	function __toString() {
+		return $string;
+	}
+}
+?>

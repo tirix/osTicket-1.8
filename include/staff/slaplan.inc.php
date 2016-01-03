@@ -69,6 +69,36 @@ $info=Format::htmlchars(($errors && $_POST)?$_POST:$info);
                 &nbsp;<span class="error">*&nbsp;<?php echo $errors['isactive']; ?></span>
             </td>
         </tr>
+		<tr>
+			<td>
+                <?php echo __('Priority Escalation'); ?> :
+            </td>
+            <td>
+                <input type="checkbox" name="enable_priority_escalation" value="1" <?php echo $info['enable_priority_escalation']?'checked="checked"':''; ?> >
+                    <strong><?php echo __('Enable'); ?></strong> <?php echo __('priority escalation on overdue tickets.'); ?>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <strong><?php echo __('Revolving SLA'); ?> :</strong>
+            </td>
+            <td>
+                <input type="checkbox" name="revolving" value="1" <?php echo $info['revolving']?'checked="checked"':''; ?> >
+                <?php echo __('SLA for unanswered tickets is based on last response instead of ticket creation date.'); ?>
+                <br/>
+                <input type="checkbox" name="ignore_answered" value="1" <?php echo $info['ignore_answered']?'checked="checked"':''; ?> >
+		<?php echo __('Revolving SLA doesn\'t flag answered tickets as overdue'); ?>
+	    </td>
+        </tr>
+        <tr>
+            <td>
+                <?php echo __('Honors Department Hours:'); ?>
+            </td>
+            <td>
+                <input type="checkbox" name="open_hours_only" value="1" <?php echo $info['open_hours_only']?'checked="checked"':''; ?> >
+                <?php echo __('If department has operating hours set, only count hours during open hours.'); ?>
+            </td>
+        </tr>
         <tr>
             <td width="180">
                 <?php echo __('Transient'); ?>:

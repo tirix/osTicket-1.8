@@ -453,12 +453,9 @@ implements RestrictedAccess, Threadable {
 
     function getSLADueDate() {
         if ($sla = $this->getSLA()) {
-            $dt = new DateTime($this->getCreateDate());
-
-            return $dt
-                ->add(new DateInterval('PT' . $sla->getGracePeriod() . 'H'))
-                ->format('Y-m-d H:i:s');
+			return $sla->getDueDate($this);
         }
+        return $this->duedate;
     }
 
     function updateEstDueDate() {
@@ -1361,6 +1358,12 @@ implements RestrictedAccess, Threadable {
         $this->isanswered = 1;
         $this->save();
 
+		// Clear overdue flag if SLA is revolving, and update Due Date
+		if($this->isOverdue() && $this->getSLA()->isRevolving()) {
+			$this->updateEstDueDate();
+			$this->clearOverdue();
+		}
+		
         $vars = array_merge($options,
             array(
                 'activity' => _S('New Response'),
@@ -3526,9 +3529,15 @@ implements RestrictedAccess, Threadable {
 
         if(($res=db_query($sql)) && db_num_rows($res)) {
             while(list($id)=db_fetch_row($res)) {
-                if ($ticket=Ticket::lookup($id))
-                    $ticket->markOverdue();
-            }
+                 if($ticket=Ticket::lookup($id)) {
+ 		    		if( !$ticket->checkSLADue()  || ( $ticket->getSLA()->ignores_answered() && $ticket->ht['isanswered'] ) )
+ 						continue;
+					else {
+						$ticket->markOverdue();
+						$ticket->logActivity(_S('Ticket Marked Overdue'), _S('Ticket flagged as overdue by the system.'));
+					}
+                 }
+			}
         } else {
             //TODO: Trigger escalation on already overdue tickets - make sure last overdue event > grace_period.
 

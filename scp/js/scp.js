@@ -182,6 +182,52 @@ var scp_prep = function() {
      });
 
 
+    // Working hours
+    var updateWorkhours = function() {
+		  var workhours = [0, 0, 0, 0, 0, 0, 0];
+		  $("#workhours td.ui-selected").each(function() { workhours[$(this).attr('day')] |= 1 << $(this).attr('h'); });
+		  $('#workhours_bitmap').val(JSON.stringify(workhours));
+    };
+    
+    $( "#workhours" ).selectable({
+		  filter: "tbody td",
+		  stop: function( event, ui ) { 
+			  $('#24_7').prop('checked', $("#workhours td.ui-selected").length == 24 * 7);
+			  warnOnLeave($(this)); 
+			  updateWorkhours();
+		  } 
+	});
+	
+	$('#24_7').change(function() {
+		if($( this ).is(':checked') ) {
+			$('#workhours td').addClass("ui-selected");
+		}
+		else {
+			$('#workhours td').removeClass("ui-selected");
+		}
+		updateWorkhours();
+	});
+	    
+	if($('#workhours')) {
+		var workhours = JSON.parse($('#workhours_bitmap').val());
+		if(!workhours) {
+			workhours = [16777215,16777215,16777215,16777215,16777215,16777215,16777215];
+			$('#workhours_bitmap').val(JSON.stringify(workhours));
+		}
+		var weekdays = [ __('Monday'), __('Tuesday'), __('Wednesday'), __('Thursday'), __('Friday'), __('Saturday'), __('Sunday') ];
+		var ths = '<th width="16%" style="text-align:left;">'+__('Weekday')+' / '+__('Hour')+'</th>'; 
+		for (var h = 0; h < 24; h++) ths += '<th width="3.5%">'+h+'</th>';
+		var trs = '';
+		for (var day = 0; day < 7; day++) {
+		  var tds = '<th style="text-align:left;">' + weekdays[day] + '</th>'; 
+		  for (var h = 0; h < 24; h++) tds += '<td day="'+day+'" h="'+h+'" '+(((1<<h) & workhours[day]) != 0 ? 'class="ui-selected"' : '')+'></td>';
+		  trs += '<tr>' + tds + '</tr>';
+		}
+		var table = $('<thead><tr>' + ths + '</tr></thead><tbody>' + trs + '</tbody>');
+		$('#workhours').append(table);
+		$('#24_7').prop('checked', $("#workhours td.ui-selected").length == 24 * 7);
+	}
+	
     //Canned attachments.
     $('.canned_attachments, .faq_attachments').delegate('input:checkbox', 'click', function(e) {
         var elem = $(this);
